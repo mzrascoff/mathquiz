@@ -1,0 +1,705 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>4th Grade Math Quiz - Interactive</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            background: linear-gradient(135deg, #0f0c29 0%, #302b63 50%, #24243e 100%);
+            min-height: 100vh;
+            color: #fff;
+            padding: 20px;
+        }
+        .container { max-width: 900px; margin: 0 auto; }
+        header { text-align: center; padding: 20px; margin-bottom: 20px; }
+        h1 {
+            font-size: 2.2rem;
+            background: linear-gradient(135deg, #00d4ff, #7c4dff, #ff4081);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 10px;
+        }
+        .quiz-selector {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 30px;
+        }
+        .quiz-btn {
+            padding: 20px;
+            border: 2px solid rgba(255,255,255,0.2);
+            border-radius: 16px;
+            background: rgba(255,255,255,0.05);
+            color: white;
+            font-size: 1.1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        .quiz-btn:hover {
+            background: rgba(255,255,255,0.1);
+            border-color: #7c4dff;
+            transform: translateY(-3px);
+        }
+        .quiz-btn .icon { font-size: 2rem; display: block; margin-bottom: 8px; }
+        .progress-section {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        .progress-bar {
+            flex: 1;
+            height: 10px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 5px;
+            margin: 0 20px;
+            overflow: hidden;
+        }
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #7c4dff, #00d4ff);
+            transition: width 0.5s ease;
+        }
+        .score-display { font-size: 1.2rem; font-weight: 600; color: #7c4dff; }
+        .question-card {
+            background: rgba(255,255,255,0.05);
+            border-radius: 24px;
+            padding: 30px;
+            margin-bottom: 20px;
+        }
+        .question-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        .question-number {
+            background: linear-gradient(135deg, #7c4dff, #536dfe);
+            padding: 8px 20px;
+            border-radius: 20px;
+            font-weight: 600;
+        }
+        .question-type { color: #a0aec0; font-size: 0.9rem; }
+        .visual-container {
+            background: linear-gradient(135deg, #0a0a1a, #1a1a2e);
+            border-radius: 16px;
+            padding: 30px;
+            margin-bottom: 25px;
+            min-height: 280px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+        .question-text {
+            font-size: 1.3rem;
+            text-align: center;
+            margin-bottom: 20px;
+            line-height: 1.6;
+        }
+        canvas { display: block; margin: 0 auto; }
+        .equation {
+            font-size: 1.8rem;
+            font-weight: bold;
+            color: #ffab00;
+            text-align: center;
+            margin: 15px 0;
+        }
+        .answers-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 15px;
+        }
+        .answer-btn {
+            padding: 18px 25px;
+            border: 2px solid rgba(255,255,255,0.2);
+            border-radius: 16px;
+            background: rgba(255,255,255,0.05);
+            color: white;
+            font-size: 1.2rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        .answer-btn:hover:not(:disabled) {
+            background: rgba(255,255,255,0.1);
+            border-color: #7c4dff;
+            transform: scale(1.02);
+        }
+        .answer-btn:disabled { cursor: not-allowed; opacity: 0.7; }
+        .answer-btn.correct {
+            background: linear-gradient(135deg, #2ecc71, #27ae60) !important;
+            border-color: #2ecc71 !important;
+        }
+        .answer-btn.incorrect {
+            background: linear-gradient(135deg, #e74c3c, #c0392b) !important;
+            border-color: #e74c3c !important;
+        }
+        .answer-btn.show-correct {
+            border-color: #2ecc71 !important;
+            box-shadow: 0 0 20px rgba(46, 204, 113, 0.5);
+        }
+        .answer-letter {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.1);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+        }
+        .feedback {
+            text-align: center;
+            padding: 20px;
+            margin-top: 20px;
+            border-radius: 16px;
+            font-size: 1.2rem;
+            font-weight: 600;
+            display: none;
+        }
+        .feedback.correct {
+            background: rgba(46, 204, 113, 0.2);
+            color: #2ecc71;
+            display: block;
+        }
+        .feedback.incorrect {
+            background: rgba(231, 76, 60, 0.2);
+            color: #e74c3c;
+            display: block;
+        }
+        .next-btn {
+            display: none;
+            margin: 20px auto;
+            padding: 15px 50px;
+            background: linear-gradient(135deg, #7c4dff, #536dfe);
+            border: none;
+            border-radius: 30px;
+            color: white;
+            font-size: 1.2rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        .next-btn:hover { transform: translateY(-3px); box-shadow: 0 10px 30px rgba(124, 77, 255, 0.4); }
+        .next-btn.visible { display: block; }
+        .results-screen { display: none; text-align: center; padding: 40px; }
+        .results-screen.visible { display: block; }
+        .results-screen h2 { font-size: 2.5rem; margin-bottom: 20px; }
+        .final-score {
+            width: 180px;
+            height: 180px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #7c4dff, #00d4ff);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            margin: 30px auto;
+        }
+        .final-score .number { font-size: 4rem; font-weight: bold; }
+        .final-score .label { font-size: 1.1rem; }
+        .result-message { font-size: 1.3rem; color: #a0aec0; margin-bottom: 30px; }
+        .restart-btn {
+            padding: 15px 40px;
+            background: linear-gradient(135deg, #7c4dff, #536dfe);
+            border: none;
+            border-radius: 30px;
+            color: white;
+            font-size: 1.1rem;
+            font-weight: 600;
+            cursor: pointer;
+            margin: 10px;
+        }
+        @media (max-width: 600px) {
+            .answers-grid { grid-template-columns: 1fr; }
+            .question-text { font-size: 1.1rem; }
+            h1 { font-size: 1.6rem; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🎓 4th Grade Math Quiz</h1>
+            <p style="color: #a0aec0;">Choose a topic and test your skills!</p>
+        </header>
+
+        <div class="quiz-selector" id="quizSelector">
+            <button class="quiz-btn" onclick="startQuiz('multiplication')">
+                <span class="icon">×</span>Multiplication
+            </button>
+            <button class="quiz-btn" onclick="startQuiz('fractions')">
+                <span class="icon">½</span>Fractions
+            </button>
+            <button class="quiz-btn" onclick="startQuiz('geometry')">
+                <span class="icon">△</span>Geometry
+            </button>
+            <button class="quiz-btn" onclick="startQuiz('word_problems')">
+                <span class="icon">📖</span>Word Problems
+            </button>
+        </div>
+
+        <div id="quizArea" style="display: none;">
+            <div class="progress-section">
+                <span id="questionCounter">Question 1/10</span>
+                <div class="progress-bar">
+                    <div class="progress-fill" id="progressFill" style="width: 10%"></div>
+                </div>
+                <span class="score-display">Score: <span id="scoreDisplay">0</span>/10</span>
+            </div>
+
+            <div class="question-card">
+                <div class="question-header">
+                    <span class="question-number" id="qNumber">Q1</span>
+                    <span class="question-type" id="qType">Multiplication</span>
+                </div>
+                <div class="visual-container">
+                    <div class="question-text" id="questionText"></div>
+                    <canvas id="visualCanvas" width="500" height="200"></canvas>
+                    <div class="equation" id="equation"></div>
+                </div>
+                <div class="answers-grid" id="answersGrid"></div>
+                <div class="feedback" id="feedback"></div>
+            </div>
+            <button class="next-btn" id="nextBtn" onclick="nextQuestion()">Next Question →</button>
+        </div>
+
+        <div class="results-screen" id="resultsScreen">
+            <h2>🎉 Quiz Complete!</h2>
+            <div class="final-score">
+                <span class="number" id="finalScore">0</span>
+                <span class="label">out of 10</span>
+            </div>
+            <p class="result-message" id="resultMessage"></p>
+            <button class="restart-btn" onclick="location.reload()">Try Another Quiz</button>
+        </div>
+    </div>
+
+    <script>
+        const quizData = {
+            multiplication: [
+                { q: 'How many squares are in this array?', nums: [3, 4] },
+                { q: 'Count all the objects:', nums: [4, 5] },
+                { q: 'What is the total?', nums: [5, 3] },
+                { q: 'Maya has 4 bags with 6 marbles each. Total?', nums: [4, 6] },
+                { q: 'Find the product:', nums: [6, 4] },
+                { q: '5 shelves with 7 books each. How many books?', nums: [5, 7] },
+                { q: 'Calculate: rows × columns =', nums: [3, 8] },
+                { q: '6 rows of 5 chairs. Total chairs?', nums: [6, 5] },
+                { q: 'What multiplication does this show?', nums: [4, 7] },
+                { q: '8 rows with 4 seeds each. Total seeds?', nums: [8, 4] }
+            ],
+            fractions: [
+                { q: 'What fraction is shaded?', nums: [3, 4], type: 'pie' },
+                { q: 'What fraction of the shape is colored?', nums: [2, 5], type: 'bar' },
+                { q: 'Which fraction is LARGER?', nums: [[2, 4], [3, 4]], type: 'compare' },
+                { q: 'Name the shaded fraction:', nums: [5, 8], type: 'pie' },
+                { q: 'Which fraction equals 1/2?', nums: [1, 2], type: 'equiv', opts: [[2,4],[1,3],[3,5],[2,3]], ans: 0 },
+                { q: 'What fraction is shown?', nums: [3, 6], type: 'bar' },
+                { q: 'Which is GREATER?', nums: [[3, 5], [2, 3]], type: 'compare' },
+                { q: 'Identify the shaded portion:', nums: [4, 5], type: 'pie' },
+                { q: 'Which equals 2/3?', nums: [2, 3], type: 'equiv', opts: [[4,6],[3,4],[4,5],[3,6]], ans: 0 },
+                { q: 'Which fraction is SMALLER?', nums: [[5, 8], [3, 4]], type: 'compare', smaller: true }
+            ],
+            geometry: [
+                { q: 'Find the PERIMETER:', nums: [6, 4], type: 'perim' },
+                { q: 'Calculate the AREA:', nums: [5, 3], type: 'area' },
+                { q: 'What type of angle is this?', nums: [45], type: 'angle', opts: ['Acute','Right','Obtuse','Straight'], ans: 0 },
+                { q: 'How many sides?', nums: [5], type: 'shape', opts: ['4','5','6','8'], ans: 1 },
+                { q: 'What is the perimeter?', nums: [8, 5], type: 'perim' },
+                { q: 'Find the area:', nums: [7, 4], type: 'area' },
+                { q: 'Identify this angle:', nums: [90], type: 'angle', opts: ['Acute','Right','Obtuse','Straight'], ans: 1 },
+                { q: 'Name this polygon:', nums: [6], type: 'shape', opts: ['Pentagon','Hexagon','Heptagon','Octagon'], ans: 1 },
+                { q: 'Calculate perimeter:', nums: [9, 6], type: 'perim' },
+                { q: 'What kind of angle?', nums: [120], type: 'angle', opts: ['Acute','Right','Obtuse','Straight'], ans: 2 }
+            ],
+            word_problems: [
+                { q: '12 cookies shared among 3 friends. Each gets?', nums: [12, 3], type: 'div' },
+                { q: 'Sam buys 4 apples at $2 each. Total?', nums: [4, 2], type: 'money' },
+                { q: 'Ella has 15, Tom has 9. How many MORE does Ella have?', nums: [15, 9], type: 'diff' },
+                { q: '20 candies split between 4 kids. Each gets?', nums: [20, 4], type: 'div' },
+                { q: '3 books cost $5 each. Total?', nums: [3, 5], type: 'money' },
+                { q: 'Box A: 24 balls, Box B: 16. Difference?', nums: [24, 16], type: 'diff' },
+                { q: '18 pencils ÷ 6 students. Each gets?', nums: [18, 6], type: 'div' },
+                { q: 'Movie: $8. Popcorn: $4. Total spent?', nums: [8, 4], type: 'add' },
+                { q: 'Sara: 18 blocks, Jay: 11. How many more did Sara walk?', nums: [18, 11], type: 'diff' },
+                { q: '24 stickers ÷ 8 friends. Each gets?', nums: [24, 8], type: 'div' }
+            ]
+        };
+
+        let currentQuiz = null, currentQuestion = 0, score = 0, answered = false;
+        const canvas = document.getElementById('visualCanvas');
+        const ctx = canvas.getContext('2d');
+        const colors = ['#3498db','#e74c3c','#2ecc71','#f39c12','#9b59b6','#1abc9c','#e67e22','#e91e63'];
+
+        function startQuiz(type) {
+            currentQuiz = type;
+            currentQuestion = 0;
+            score = 0;
+            document.getElementById('quizSelector').style.display = 'none';
+            document.getElementById('quizArea').style.display = 'block';
+            document.getElementById('resultsScreen').classList.remove('visible');
+            const labels = {multiplication:'Multiplication',fractions:'Fractions',geometry:'Geometry',word_problems:'Word Problems'};
+            document.getElementById('qType').textContent = labels[type];
+            loadQuestion();
+        }
+
+        function loadQuestion() {
+            answered = false;
+            const q = quizData[currentQuiz][currentQuestion];
+            document.getElementById('questionCounter').textContent = 'Question ' + (currentQuestion+1) + '/10';
+            document.getElementById('progressFill').style.width = ((currentQuestion+1)*10) + '%';
+            document.getElementById('scoreDisplay').textContent = score;
+            document.getElementById('qNumber').textContent = 'Q' + (currentQuestion+1);
+            document.getElementById('questionText').textContent = q.q;
+            document.getElementById('feedback').className = 'feedback';
+            document.getElementById('nextBtn').classList.remove('visible');
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            let correct, answers;
+
+            if (currentQuiz === 'multiplication') {
+                correct = q.nums[0] * q.nums[1];
+                answers = genWrong(correct, 4);
+                document.getElementById('equation').textContent = q.nums[0] + ' × ' + q.nums[1] + ' = ?';
+                drawGrid(q.nums[0], q.nums[1]);
+            } else if (currentQuiz === 'fractions') {
+                if (q.type === 'pie' || q.type === 'bar') {
+                    correct = q.nums[0] + '/' + q.nums[1];
+                    answers = genFrac(q.nums[0], q.nums[1]);
+                    document.getElementById('equation').textContent = '? / ' + q.nums[1];
+                    if (q.type === 'pie') drawPie(q.nums[0], q.nums[1]);
+                    else drawBar(q.nums[0], q.nums[1]);
+                } else if (q.type === 'compare') {
+                    const [f1,f2] = q.nums;
+                    const v1 = f1[0]/f1[1], v2 = f2[0]/f2[1];
+                    correct = q.smaller ? (v1<v2 ? f1[0]+'/'+f1[1] : f2[0]+'/'+f2[1]) : (v1>v2 ? f1[0]+'/'+f1[1] : f2[0]+'/'+f2[1]);
+                    answers = [f1[0]+'/'+f1[1], f2[0]+'/'+f2[1], 'Equal', 'Cannot tell'];
+                    document.getElementById('equation').textContent = f1[0]+'/'+f1[1] + '  vs  ' + f2[0]+'/'+f2[1];
+                    drawCompare(f1, f2);
+                } else if (q.type === 'equiv') {
+                    correct = q.opts[q.ans][0] + '/' + q.opts[q.ans][1];
+                    answers = q.opts.map(o => o[0]+'/'+o[1]);
+                    document.getElementById('equation').textContent = q.nums[0]+'/'+q.nums[1] + ' = ?';
+                    drawBar(q.nums[0], q.nums[1]);
+                }
+            } else if (currentQuiz === 'geometry') {
+                if (q.type === 'perim') {
+                    correct = 2*(q.nums[0]+q.nums[1]);
+                    answers = genWrong(correct, 4);
+                    document.getElementById('equation').textContent = 'P = 2×(' + q.nums[0] + '+' + q.nums[1] + ') = ?';
+                    drawRect(q.nums[0], q.nums[1]);
+                } else if (q.type === 'area') {
+                    correct = q.nums[0]*q.nums[1];
+                    answers = genWrong(correct, 4);
+                    document.getElementById('equation').textContent = 'A = ' + q.nums[0] + '×' + q.nums[1] + ' = ?';
+                    drawAreaGrid(q.nums[0], q.nums[1]);
+                } else if (q.type === 'angle') {
+                    correct = q.opts[q.ans];
+                    answers = [...q.opts];
+                    document.getElementById('equation').textContent = q.nums[0] + '°';
+                    drawAngle(q.nums[0]);
+                } else if (q.type === 'shape') {
+                    correct = q.opts[q.ans];
+                    answers = [...q.opts];
+                    document.getElementById('equation').textContent = '';
+                    drawPolygon(q.nums[0]);
+                }
+            } else if (currentQuiz === 'word_problems') {
+                if (q.type === 'div') {
+                    correct = q.nums[0] / q.nums[1];
+                    answers = genWrong(correct, 4);
+                    document.getElementById('equation').textContent = q.nums[0] + ' ÷ ' + q.nums[1] + ' = ?';
+                    drawSharing(q.nums[0], q.nums[1]);
+                } else if (q.type === 'money') {
+                    correct = '$' + (q.nums[0]*q.nums[1]);
+                    answers = genWrong(q.nums[0]*q.nums[1], 4).map(a => '$'+a);
+                    document.getElementById('equation').textContent = q.nums[0] + ' × $' + q.nums[1] + ' = ?';
+                    drawMoney(q.nums[0], q.nums[1]);
+                } else if (q.type === 'diff') {
+                    correct = q.nums[0] - q.nums[1];
+                    answers = genWrong(correct, 4);
+                    document.getElementById('equation').textContent = q.nums[0] + ' - ' + q.nums[1] + ' = ?';
+                    drawDiff(q.nums[0], q.nums[1]);
+                } else if (q.type === 'add') {
+                    correct = '$' + (q.nums[0]+q.nums[1]);
+                    answers = genWrong(q.nums[0]+q.nums[1], 4).map(a => '$'+a);
+                    document.getElementById('equation').textContent = '$' + q.nums[0] + ' + $' + q.nums[1] + ' = ?';
+                    drawMoney(2, q.nums[0]);
+                }
+            }
+
+            const shuffled = shuffle(answers, correct);
+            displayAnswers(shuffled.arr, shuffled.idx);
+        }
+
+        function genWrong(c, n) {
+            const s = new Set([c]);
+            while(s.size < n) { const w = c + Math.floor(Math.random()*10)-5; if(w>0 && w!==c) s.add(w); }
+            return Array.from(s);
+        }
+
+        function genFrac(num, den) {
+            const a = [num+'/'+den];
+            while(a.length < 4) { const n = Math.floor(Math.random()*den)+1; const f = n+'/'+den; if(!a.includes(f)) a.push(f); }
+            return a;
+        }
+
+        function shuffle(arr, correct) {
+            const s = [...arr].sort(() => Math.random()-0.5);
+            return { arr: s, idx: s.indexOf(correct) };
+        }
+
+        function displayAnswers(answers, correctIdx) {
+            const grid = document.getElementById('answersGrid');
+            grid.innerHTML = '';
+            const letters = ['A','B','C','D'];
+            answers.forEach((ans, i) => {
+                const btn = document.createElement('button');
+                btn.className = 'answer-btn';
+                btn.innerHTML = '<span class="answer-letter">'+letters[i]+'</span><span>'+ans+'</span>';
+                btn.onclick = () => checkAnswer(i, correctIdx, btn);
+                grid.appendChild(btn);
+            });
+        }
+
+        function checkAnswer(sel, correct, btn) {
+            if(answered) return;
+            answered = true;
+            document.querySelectorAll('.answer-btn').forEach(b => b.disabled = true);
+            if(sel === correct) {
+                btn.classList.add('correct');
+                score++;
+                document.getElementById('scoreDisplay').textContent = score;
+                document.getElementById('feedback').className = 'feedback correct';
+                document.getElementById('feedback').textContent = '✓ Correct! Great job!';
+            } else {
+                btn.classList.add('incorrect');
+                document.querySelectorAll('.answer-btn')[correct].classList.add('show-correct');
+                document.getElementById('feedback').className = 'feedback incorrect';
+                document.getElementById('feedback').textContent = '✗ Not quite. The correct answer is highlighted.';
+            }
+            document.getElementById('nextBtn').classList.add('visible');
+        }
+
+        function nextQuestion() {
+            currentQuestion++;
+            if(currentQuestion < 10) loadQuestion();
+            else showResults();
+        }
+
+        function showResults() {
+            document.getElementById('quizArea').style.display = 'none';
+            document.getElementById('resultsScreen').classList.add('visible');
+            document.getElementById('finalScore').textContent = score;
+            let msg;
+            if(score===10) msg = "Perfect! You're a math genius! 🌟";
+            else if(score>=8) msg = "Excellent work! 🎉";
+            else if(score>=6) msg = "Good job! Keep practicing! 💪";
+            else if(score>=4) msg = "Nice try! Review and try again! 📚";
+            else msg = "Keep practicing! 🌱";
+            document.getElementById('resultMessage').textContent = msg;
+        }
+
+        // Drawing functions
+        function drawGrid(rows, cols) {
+            const size = Math.min(28, 180/Math.max(rows,cols));
+            const gap = 4;
+            const sx = (canvas.width - cols*(size+gap))/2;
+            const sy = (canvas.height - rows*(size+gap))/2;
+            for(let r=0; r<rows; r++) {
+                for(let c=0; c<cols; c++) {
+                    ctx.fillStyle = colors[r%colors.length];
+                    ctx.beginPath();
+                    ctx.roundRect(sx+c*(size+gap), sy+r*(size+gap), size, size, 4);
+                    ctx.fill();
+                }
+            }
+            ctx.fillStyle = '#fff';
+            ctx.font = 'bold 14px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText(rows+' rows × '+cols+' columns', canvas.width/2, sy+rows*(size+gap)+20);
+        }
+
+        function drawPie(num, den) {
+            const cx = canvas.width/2, cy = canvas.height/2, r = 80;
+            for(let i=0; i<den; i++) {
+                const start = -Math.PI/2 + i*2*Math.PI/den;
+                const end = start + 2*Math.PI/den;
+                ctx.beginPath();
+                ctx.moveTo(cx, cy);
+                ctx.arc(cx, cy, r, start, end);
+                ctx.closePath();
+                ctx.fillStyle = i<num ? colors[i%colors.length] : 'rgba(255,255,255,0.2)';
+                ctx.fill();
+                ctx.strokeStyle = '#fff';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+            }
+        }
+
+        function drawBar(num, den) {
+            const w = 300, h = 50, x = (canvas.width-w)/2, y = (canvas.height-h)/2;
+            const pw = w/den;
+            for(let i=0; i<den; i++) {
+                ctx.fillStyle = i<num ? colors[i%colors.length] : 'rgba(255,255,255,0.2)';
+                ctx.fillRect(x+i*pw, y, pw-3, h);
+                ctx.strokeStyle = '#fff';
+                ctx.strokeRect(x+i*pw, y, pw-3, h);
+            }
+        }
+
+        function drawCompare(f1, f2) {
+            const w = 200, h = 35;
+            ctx.fillStyle = '#fff';
+            ctx.font = 'bold 16px sans-serif';
+            ctx.textAlign = 'left';
+            ctx.fillText(f1[0]+'/'+f1[1], 60, 55);
+            drawBarAt(60, 65, w, h, f1[0], f1[1], '#3498db');
+            ctx.fillText(f2[0]+'/'+f2[1], 60, 140);
+            drawBarAt(60, 150, w, h, f2[0], f2[1], '#e74c3c');
+        }
+
+        function drawBarAt(x, y, w, h, num, den, color) {
+            const pw = w/den;
+            for(let i=0; i<den; i++) {
+                ctx.fillStyle = i<num ? color : 'rgba(255,255,255,0.2)';
+                ctx.fillRect(x+i*pw, y, pw-2, h);
+                ctx.strokeStyle = '#fff';
+                ctx.strokeRect(x+i*pw, y, pw-2, h);
+            }
+        }
+
+        function drawRect(w, h) {
+            const scale = 12;
+            const rw = w*scale, rh = h*scale;
+            const x = (canvas.width-rw)/2, y = (canvas.height-rh)/2;
+            ctx.fillStyle = '#3498db';
+            ctx.fillRect(x, y, rw, rh);
+            ctx.strokeStyle = '#fff';
+            ctx.lineWidth = 3;
+            ctx.strokeRect(x, y, rw, rh);
+            ctx.fillStyle = '#ffab00';
+            ctx.font = 'bold 16px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText(w, x+rw/2, y+rh+20);
+            ctx.fillText(h, x-20, y+rh/2+5);
+        }
+
+        function drawAreaGrid(w, h) {
+            const size = Math.min(25, 180/Math.max(w,h));
+            const sx = (canvas.width-w*size)/2, sy = (canvas.height-h*size)/2;
+            for(let r=0; r<h; r++) {
+                for(let c=0; c<w; c++) {
+                    ctx.fillStyle = colors[(r+c)%colors.length];
+                    ctx.fillRect(sx+c*size, sy+r*size, size-2, size-2);
+                }
+            }
+        }
+
+        function drawAngle(deg) {
+            const angle = deg*Math.PI/180;
+            const cx = canvas.width/2, cy = canvas.height/2+20, len = 80;
+            ctx.strokeStyle = '#e67e22';
+            ctx.lineWidth = 4;
+            ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(cx+len, cy); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(cx+len*Math.cos(-angle), cy+len*Math.sin(-angle)); ctx.stroke();
+            ctx.beginPath(); ctx.arc(cx, cy, 35, -angle, 0); ctx.stroke();
+            ctx.fillStyle = '#e67e22';
+            ctx.beginPath(); ctx.arc(cx, cy, 5, 0, Math.PI*2); ctx.fill();
+        }
+
+        function drawPolygon(sides) {
+            const cx = canvas.width/2, cy = canvas.height/2, r = 70;
+            ctx.beginPath();
+            for(let i=0; i<=sides; i++) {
+                const a = -Math.PI/2 + i*2*Math.PI/sides;
+                const x = cx+r*Math.cos(a), y = cy+r*Math.sin(a);
+                if(i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
+            }
+            ctx.closePath();
+            ctx.fillStyle = '#1abc9c';
+            ctx.fill();
+            ctx.strokeStyle = '#fff';
+            ctx.lineWidth = 3;
+            ctx.stroke();
+            for(let i=0; i<sides; i++) {
+                const a = -Math.PI/2 + i*2*Math.PI/sides;
+                ctx.fillStyle = '#ffab00';
+                ctx.beginPath();
+                ctx.arc(cx+r*Math.cos(a), cy+r*Math.sin(a), 5, 0, Math.PI*2);
+                ctx.fill();
+            }
+        }
+
+        function drawSharing(total, groups) {
+            const size = 12;
+            for(let i=0; i<total; i++) {
+                const c = i%8, r = Math.floor(i/8);
+                ctx.fillStyle = '#f39c12';
+                ctx.beginPath();
+                ctx.arc(120+c*28, 40+r*28, size, 0, Math.PI*2);
+                ctx.fill();
+            }
+            const sp = canvas.width/(groups+1);
+            for(let i=0; i<groups; i++) {
+                ctx.fillStyle = colors[i%colors.length];
+                ctx.beginPath();
+                ctx.arc(sp*(i+1), 160, 18, 0, Math.PI*2);
+                ctx.fill();
+                ctx.fillRect(sp*(i+1)-3, 180, 6, 25);
+            }
+        }
+
+        function drawMoney(count, val) {
+            for(let i=0; i<Math.min(count,6); i++) {
+                const x = 150+i*50, y = canvas.height/2;
+                const grad = ctx.createRadialGradient(x-4,y-4,0,x,y,18);
+                grad.addColorStop(0,'#fff7a0');
+                grad.addColorStop(0.6,'#ffd700');
+                grad.addColorStop(1,'#cc9900');
+                ctx.fillStyle = grad;
+                ctx.beginPath();
+                ctx.arc(x, y, 18, 0, Math.PI*2);
+                ctx.fill();
+                ctx.fillStyle = '#886600';
+                ctx.font = 'bold 12px sans-serif';
+                ctx.textAlign = 'center';
+                ctx.fillText('$'+val, x, y+4);
+            }
+        }
+
+        function drawDiff(a, b) {
+            const max = Math.max(a,b), w = 280;
+            ctx.fillStyle = '#fff';
+            ctx.font = 'bold 16px sans-serif';
+            ctx.textAlign = 'left';
+            ctx.fillText(a, 50, 70);
+            ctx.fillStyle = '#3498db';
+            ctx.fillRect(80, 55, (a/max)*w, 30);
+            ctx.fillStyle = '#fff';
+            ctx.fillText(b, 50, 130);
+            ctx.fillStyle = '#e74c3c';
+            ctx.fillRect(80, 115, (b/max)*w, 30);
+            ctx.strokeStyle = '#2ecc71';
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.moveTo(80+(b/max)*w, 60);
+            ctx.lineTo(80+(a/max)*w, 60);
+            ctx.stroke();
+            ctx.fillStyle = '#2ecc71';
+            ctx.font = 'bold 14px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText('?', 80+((a+b)/max/2)*w, 48);
+        }
+    </script>
+</body>
+</html>
