@@ -304,6 +304,25 @@
             return arr[Math.floor(Math.random() * arr.length)];
         }
 
+        // --- Question Tracking (prevent repeats in same quiz) ---
+        let usedQuestions = new Set();
+        let lastQuestionType = '';
+
+        function generateUniqueQuestion(topic, level) {
+            let q, key;
+            let attempts = 0;
+            do {
+                q = questionGenerators[topic][level]();
+                key = `${topic}-${level}-${q.qtype || 'default'}-${q.equation || q.q}-${q.correct || q.nums?.join('-')}`;
+                attempts++;
+            } while (usedQuestions.has(key) && attempts < 100);
+            usedQuestions.add(key);
+
+            // Track question type for variety
+            if (q.qtype) lastQuestionType = q.qtype;
+            return q;
+        }
+
         // --- Adaptive Difficulty Engine ---
         const difficulty = { level: 2, streak: 0, maxReached: 2 };
 
@@ -323,97 +342,350 @@
             }
         }
 
-        // --- Question Generators ---
+        // --- EXPANDED Question Templates (25+ multiplication, 30+ word problems) ---
         const multTemplates = [
-            (a, b) => 'How many squares are in this ' + a + ' × ' + b + ' array?',
-            (a, b) => 'Count all the objects in the grid:',
-            (a, b) => 'What is the total?',
-            (a, b) => a + ' bags with ' + b + ' marbles each. Total?',
-            (a, b) => 'Find the product:',
-            (a, b) => a + ' shelves with ' + b + ' books each. How many books?',
-            (a, b) => 'Calculate: rows × columns =',
-            (a, b) => a + ' rows of ' + b + ' chairs. Total chairs?',
-            (a, b) => 'What multiplication does this show?',
-            (a, b) => a + ' rows with ' + b + ' seeds each. Total seeds?',
-            (a, b) => a + ' boxes with ' + b + ' crayons each. How many crayons?',
-            (a, b) => a + ' friends each have ' + b + ' stickers. Total stickers?',
+            (a, b) => `How many squares are in this ${a} × ${b} array?`,
+            (a, b) => `Count all the objects in the grid:`,
+            (a, b) => `What is the total?`,
+            (a, b) => `${a} bags with ${b} marbles each. Total?`,
+            (a, b) => `Find the product:`,
+            (a, b) => `${a} shelves with ${b} books each. How many books?`,
+            (a, b) => `Calculate: rows × columns =`,
+            (a, b) => `${a} rows of ${b} chairs. Total chairs?`,
+            (a, b) => `What multiplication does this show?`,
+            (a, b) => `${a} rows with ${b} seeds each. Total seeds?`,
+            (a, b) => `${a} boxes with ${b} crayons each. How many crayons?`,
+            (a, b) => `${a} friends each have ${b} stickers. Total stickers?`,
+            (a, b) => `${a} teams with ${b} players each. Total players?`,
+            (a, b) => `${a} cars with ${b} passengers each. Total passengers?`,
+            (a, b) => `${a} buses with ${b} seats each. Total seats?`,
+            (a, b) => `${a} baskets with ${b} apples each. Total apples?`,
+            (a, b) => `${a} classrooms with ${b} desks each. Total desks?`,
+            (a, b) => `${a} floors with ${b} rooms each. Total rooms?`,
+            (a, b) => `${a} pages with ${b} stickers each. Total stickers?`,
+            (a, b) => `${a} packs of ${b} cards. Total cards?`,
+            (a, b) => `${a} tables with ${b} plates each. Total plates?`,
+            (a, b) => `${a} vases with ${b} flowers each. Total flowers?`,
+            (a, b) => `${a} nests with ${b} birds each. Total birds?`,
+            (a, b) => `${a} tanks with ${b} fish each. Total fish?`,
+            (a, b) => `${a} trays with ${b} cookies each. Total cookies?`,
+        ];
+
+        const skipCountTemplates = [
+            (n, seq) => `Count by ${n}s: ${seq.join(', ')}, ?`,
+            (n, seq) => `Skip counting by ${n}: ${seq.join(', ')}, ?`,
+            (n, seq) => `What comes next? ${seq.join(', ')}, ?`,
+            (n, seq) => `Continue the pattern: ${seq.join(', ')}, ?`,
+        ];
+
+        const missingFactorTemplates = [
+            (a, b, c) => `? × ${b} = ${c}`,
+            (a, b, c) => `${a} × ? = ${c}`,
+            (a, b, c) => `Find the missing number: ? × ${b} = ${c}`,
+            (a, b, c) => `What times ${b} equals ${c}?`,
         ];
 
         const divTemplates = [
-            (a, b) => a + ' cookies shared among ' + b + ' friends. Each gets?',
-            (a, b) => a + ' pencils split between ' + b + ' students. Each gets?',
-            (a, b) => a + ' stickers divided among ' + b + ' kids. Each gets?',
-            (a, b) => a + ' apples shared equally by ' + b + ' people. Each gets?',
-            (a, b) => a + ' candies split into ' + b + ' equal groups. How many per group?',
-            (a, b) => a + ' flowers placed in ' + b + ' vases equally. How many per vase?',
-            (a, b) => a + ' cards dealt to ' + b + ' players. Each gets?',
-            (a, b) => a + ' marbles divided into ' + b + ' bags. How many per bag?',
+            (a, b) => `${a} cookies shared among ${b} friends. Each gets?`,
+            (a, b) => `${a} pencils split between ${b} students. Each gets?`,
+            (a, b) => `${a} stickers divided among ${b} kids. Each gets?`,
+            (a, b) => `${a} apples shared equally by ${b} people. Each gets?`,
+            (a, b) => `${a} candies split into ${b} equal groups. How many per group?`,
+            (a, b) => `${a} flowers placed in ${b} vases equally. How many per vase?`,
+            (a, b) => `${a} cards dealt to ${b} players. Each gets?`,
+            (a, b) => `${a} marbles divided into ${b} bags. How many per bag?`,
+            (a, b) => `${a} books placed on ${b} shelves equally. Per shelf?`,
+            (a, b) => `${a} toys split among ${b} children. Each gets?`,
         ];
 
         const moneyTemplates = [
-            (a, b) => 'Buy ' + a + ' items at $' + b + ' each. Total cost?',
-            (a, b) => a + ' books cost $' + b + ' each. Total?',
-            (a, b) => 'Sam buys ' + a + ' toys at $' + b + ' each. How much?',
-            (a, b) => a + ' tickets at $' + b + ' each. Total price?',
-            (a, b) => a + ' packs of cards at $' + b + ' each. Total spent?',
+            (a, b) => `Buy ${a} items at $${b} each. Total cost?`,
+            (a, b) => `${a} books cost $${b} each. Total?`,
+            (a, b) => `Sam buys ${a} toys at $${b} each. How much?`,
+            (a, b) => `${a} tickets at $${b} each. Total price?`,
+            (a, b) => `${a} packs of cards at $${b} each. Total spent?`,
+            (a, b) => `${a} pizzas at $${b} each. Total bill?`,
+            (a, b) => `${a} movie tickets at $${b} each. Total?`,
+            (a, b) => `${a} shirts at $${b} each. How much spent?`,
         ];
 
         const diffTemplates = [
-            (a, b) => 'Box A has ' + a + ', Box B has ' + b + '. Difference?',
-            (a, b) => 'Ella has ' + a + ', Tom has ' + b + '. How many more does Ella have?',
-            (a, b) => 'Team A scored ' + a + ', Team B scored ' + b + '. Difference?',
-            (a, b) => a + ' red balls and ' + b + ' blue balls. How many more red?',
-            (a, b) => 'Sara walked ' + a + ' blocks, Jay walked ' + b + '. How many more did Sara walk?',
+            (a, b) => `Box A has ${a}, Box B has ${b}. Difference?`,
+            (a, b) => `Ella has ${a}, Tom has ${b}. How many more does Ella have?`,
+            (a, b) => `Team A scored ${a}, Team B scored ${b}. Difference?`,
+            (a, b) => `${a} red balls and ${b} blue balls. How many more red?`,
+            (a, b) => `Sara walked ${a} blocks, Jay walked ${b}. How many more did Sara walk?`,
+            (a, b) => `Class A has ${a} students, Class B has ${b}. Difference?`,
+            (a, b) => `Store A sold ${a} items, Store B sold ${b}. How many more did A sell?`,
         ];
 
         const addTemplates = [
-            (a, b) => 'Movie ticket: $' + a + '. Popcorn: $' + b + '. Total spent?',
-            (a, b) => 'Lunch: $' + a + '. Drink: $' + b + '. Total?',
-            (a, b) => 'Book: $' + a + '. Bookmark: $' + b + '. Total cost?',
-            (a, b) => 'Shirt: $' + a + '. Hat: $' + b + '. How much altogether?',
+            (a, b) => `Movie ticket: $${a}. Popcorn: $${b}. Total spent?`,
+            (a, b) => `Lunch: $${a}. Drink: $${b}. Total?`,
+            (a, b) => `Book: $${a}. Bookmark: $${b}. Total cost?`,
+            (a, b) => `Shirt: $${a}. Hat: $${b}. How much altogether?`,
+            (a, b) => `Game: $${a}. Snack: $${b}. Total spent?`,
+            (a, b) => `Toy: $${a}. Battery: $${b}. Total cost?`,
         ];
 
         const twostepTemplates = [
-            (a, b, c) => 'Buy ' + a + ' items at $' + b + ' each, pay with $' + c + '. Change?',
-            (a, b, c) => a + ' packs of ' + b + ' stickers. Give away ' + c + '. How many left?',
-            (a, b, c) => 'Earn $' + b + ' for ' + a + ' chores. Spend $' + c + '. How much left?',
+            (a, b, c) => `Buy ${a} items at $${b} each, pay with $${c}. Change?`,
+            (a, b, c) => `${a} packs of ${b} stickers. Give away ${c}. How many left?`,
+            (a, b, c) => `Earn $${b} for ${a} chores. Spend $${c}. How much left?`,
+            (a, b, c) => `${a} boxes of ${b} crayons. Use ${c}. How many remain?`,
+            (a, b, c) => `${a} bags of ${b} candies. Eat ${c}. How many left?`,
+        ];
+
+        const timeTemplates = [
+            (start, dur) => `Movie starts at ${start}. It lasts ${dur}. When does it end?`,
+            (start, dur) => `Class begins at ${start} and lasts ${dur}. End time?`,
+            (start, dur) => `Game starts at ${start}, runs for ${dur}. When is it over?`,
+            (start, dur) => `Bus leaves at ${start}. Trip takes ${dur}. Arrival time?`,
+        ];
+
+        const measureTemplates = [
+            (val, from, to) => `How many ${to} in ${val} ${from}?`,
+            (val, from, to) => `Convert: ${val} ${from} = ? ${to}`,
+            (val, from, to) => `${val} ${from} equals how many ${to}?`,
         ];
 
         const shapeNames = { 3: 'Triangle', 4: 'Quadrilateral', 5: 'Pentagon', 6: 'Hexagon', 7: 'Heptagon', 8: 'Octagon' };
+        const lineTypes = ['Line', 'Ray', 'Line Segment'];
+        const symmetryShapes = [
+            { name: 'Square', lines: 4 },
+            { name: 'Rectangle', lines: 2 },
+            { name: 'Equilateral Triangle', lines: 3 },
+            { name: 'Circle', lines: 'infinite' },
+            { name: 'Isosceles Triangle', lines: 1 },
+            { name: 'Regular Pentagon', lines: 5 },
+            { name: 'Regular Hexagon', lines: 6 },
+        ];
 
-        function generateQuestion(topic, level) {
-            const gen = questionGenerators[topic];
-            return gen[level]();
-        }
-
+        // --- Question Generators ---
         const questionGenerators = {
             multiplication: {
-                1: () => { const a = randInt(1, 5), b = randInt(1, 5); return { q: pick(multTemplates)(a, b), nums: [a, b] }; },
-                2: () => { const a = randInt(2, 7), b = randInt(2, 7); return { q: pick(multTemplates)(a, b), nums: [a, b] }; },
-                3: () => { const a = randInt(2, 9), b = randInt(2, 9); return { q: pick(multTemplates)(a, b), nums: [a, b] }; },
-                4: () => { const a = randInt(5, 12), b = randInt(3, 9); return { q: pick(multTemplates)(a, b), nums: [a, b] }; },
-                5: () => { const a = randInt(6, 12), b = randInt(6, 12); return { q: pick(multTemplates)(a, b), nums: [a, b] }; },
+                1: () => {
+                    const r = Math.random();
+                    if (r < 0.6) {
+                        // Basic array
+                        const a = randInt(1, 5), b = randInt(1, 5);
+                        return { q: pick(multTemplates)(a, b), nums: [a, b], qtype: 'array' };
+                    } else {
+                        // Skip counting (NEW)
+                        const n = pick([2, 5, 10]);
+                        const start = n;
+                        const seq = [start, start + n, start + n * 2];
+                        const answer = start + n * 3;
+                        return { q: pick(skipCountTemplates)(n, seq), nums: [n], correct: answer, qtype: 'skip' };
+                    }
+                },
+                2: () => {
+                    const r = Math.random();
+                    if (r < 0.5) {
+                        const a = randInt(2, 7), b = randInt(2, 7);
+                        return { q: pick(multTemplates)(a, b), nums: [a, b], qtype: 'array' };
+                    } else if (r < 0.75) {
+                        // Skip counting
+                        const n = pick([2, 3, 4, 5]);
+                        const start = n;
+                        const seq = [start, start + n, start + n * 2];
+                        return { q: pick(skipCountTemplates)(n, seq), nums: [n], correct: start + n * 3, qtype: 'skip' };
+                    } else {
+                        // Missing factor (NEW)
+                        const a = randInt(2, 6), b = randInt(2, 6);
+                        const c = a * b;
+                        const hideFirst = Math.random() < 0.5;
+                        return {
+                            q: hideFirst ? `? × ${b} = ${c}` : `${a} × ? = ${c}`,
+                            nums: [a, b],
+                            correct: hideFirst ? a : b,
+                            qtype: 'missing',
+                            hideFirst
+                        };
+                    }
+                },
+                3: () => {
+                    const r = Math.random();
+                    if (r < 0.4) {
+                        const a = randInt(2, 9), b = randInt(2, 9);
+                        return { q: pick(multTemplates)(a, b), nums: [a, b], qtype: 'array' };
+                    } else if (r < 0.6) {
+                        // Skip counting
+                        const n = pick([3, 4, 6, 7]);
+                        const start = n * randInt(1, 3);
+                        const seq = [start, start + n, start + n * 2];
+                        return { q: pick(skipCountTemplates)(n, seq), nums: [n], correct: start + n * 3, qtype: 'skip' };
+                    } else if (r < 0.8) {
+                        // Missing factor
+                        const a = randInt(3, 9), b = randInt(3, 9);
+                        const c = a * b;
+                        const hideFirst = Math.random() < 0.5;
+                        return {
+                            q: hideFirst ? `? × ${b} = ${c}` : `${a} × ? = ${c}`,
+                            nums: [a, b],
+                            correct: hideFirst ? a : b,
+                            qtype: 'missing',
+                            hideFirst
+                        };
+                    } else {
+                        // Comparison (NEW)
+                        const a1 = randInt(4, 8), b1 = randInt(4, 8);
+                        let a2 = randInt(4, 8), b2 = randInt(4, 8);
+                        while (a1 * b1 === a2 * b2) { a2 = randInt(4, 8); b2 = randInt(4, 8); }
+                        const p1 = a1 * b1, p2 = a2 * b2;
+                        return {
+                            q: `Which is greater: ${a1}×${b1} or ${a2}×${b2}?`,
+                            nums: [[a1, b1], [a2, b2]],
+                            correct: p1 > p2 ? `${a1}×${b1}` : `${a2}×${b2}`,
+                            qtype: 'compare'
+                        };
+                    }
+                },
+                4: () => {
+                    const r = Math.random();
+                    if (r < 0.35) {
+                        const a = randInt(5, 12), b = randInt(3, 9);
+                        return { q: pick(multTemplates)(a, b), nums: [a, b], qtype: 'array' };
+                    } else if (r < 0.5) {
+                        // Skip counting with larger numbers
+                        const n = pick([6, 7, 8, 9]);
+                        const start = n * randInt(2, 5);
+                        const seq = [start, start + n, start + n * 2];
+                        return { q: pick(skipCountTemplates)(n, seq), nums: [n], correct: start + n * 3, qtype: 'skip' };
+                    } else if (r < 0.7) {
+                        // Missing factor
+                        const a = randInt(4, 12), b = randInt(4, 9);
+                        const c = a * b;
+                        const hideFirst = Math.random() < 0.5;
+                        return {
+                            q: hideFirst ? `? × ${b} = ${c}` : `${a} × ? = ${c}`,
+                            nums: [a, b],
+                            correct: hideFirst ? a : b,
+                            qtype: 'missing',
+                            hideFirst
+                        };
+                    } else {
+                        // Comparison
+                        const a1 = randInt(6, 12), b1 = randInt(5, 10);
+                        let a2 = randInt(6, 12), b2 = randInt(5, 10);
+                        while (a1 * b1 === a2 * b2) { a2 = randInt(6, 12); b2 = randInt(5, 10); }
+                        const p1 = a1 * b1, p2 = a2 * b2;
+                        return {
+                            q: `Which is greater: ${a1}×${b1} or ${a2}×${b2}?`,
+                            nums: [[a1, b1], [a2, b2]],
+                            correct: p1 > p2 ? `${a1}×${b1}` : `${a2}×${b2}`,
+                            qtype: 'compare'
+                        };
+                    }
+                },
+                5: () => {
+                    const r = Math.random();
+                    if (r < 0.3) {
+                        // Large multiplication (3-digit × 1-digit for hardest)
+                        const a = randInt(6, 12), b = randInt(6, 12);
+                        return { q: pick(multTemplates)(a, b), nums: [a, b], qtype: 'array' };
+                    } else if (r < 0.45) {
+                        // 2-digit × 1-digit
+                        const a = randInt(11, 25), b = randInt(3, 9);
+                        return { q: `${a} groups of ${b}. Total?`, nums: [a, b], qtype: 'largemult' };
+                    } else if (r < 0.6) {
+                        // Missing factor with larger numbers
+                        const a = randInt(7, 12), b = randInt(7, 12);
+                        const c = a * b;
+                        const hideFirst = Math.random() < 0.5;
+                        return {
+                            q: hideFirst ? `? × ${b} = ${c}` : `${a} × ? = ${c}`,
+                            nums: [a, b],
+                            correct: hideFirst ? a : b,
+                            qtype: 'missing',
+                            hideFirst
+                        };
+                    } else if (r < 0.8) {
+                        // Hard comparison
+                        const a1 = randInt(8, 12), b1 = randInt(7, 11);
+                        let a2 = randInt(8, 12), b2 = randInt(7, 11);
+                        while (Math.abs(a1 * b1 - a2 * b2) > 10 || a1 * b1 === a2 * b2) {
+                            a2 = randInt(8, 12); b2 = randInt(7, 11);
+                        }
+                        const p1 = a1 * b1, p2 = a2 * b2;
+                        return {
+                            q: `Which is greater: ${a1}×${b1} or ${a2}×${b2}?`,
+                            nums: [[a1, b1], [a2, b2]],
+                            correct: p1 > p2 ? `${a1}×${b1}` : `${a2}×${b2}`,
+                            qtype: 'compare'
+                        };
+                    } else {
+                        // Skip counting with 11s or 12s
+                        const n = pick([11, 12]);
+                        const start = n * randInt(1, 3);
+                        const seq = [start, start + n, start + n * 2];
+                        return { q: pick(skipCountTemplates)(n, seq), nums: [n], correct: start + n * 3, qtype: 'skip' };
+                    }
+                },
             },
             fractions: {
                 1: () => {
                     const den = randInt(2, 4), num = 1;
                     const type = pick(['pie', 'bar']);
-                    return { q: type === 'pie' ? 'What fraction is shaded?' : 'What fraction of the bar is colored?', nums: [num, den], type };
+                    return { q: type === 'pie' ? 'What fraction is shaded?' : 'What fraction of the bar is colored?', nums: [num, den], type, qtype: type };
                 },
                 2: () => {
-                    const den = randInt(2, 6), num = randInt(1, den - 1);
-                    const type = pick(['pie', 'bar']);
-                    return { q: type === 'pie' ? 'Name the shaded fraction:' : 'What fraction is shown?', nums: [num, den], type };
+                    const r = Math.random();
+                    if (r < 0.6) {
+                        const den = randInt(2, 6), num = randInt(1, den - 1);
+                        const type = pick(['pie', 'bar']);
+                        return { q: type === 'pie' ? 'Name the shaded fraction:' : 'What fraction is shown?', nums: [num, den], type, qtype: type };
+                    } else {
+                        // Adding fractions same denominator (NEW)
+                        const den = randInt(3, 6);
+                        const n1 = randInt(1, den - 2), n2 = randInt(1, den - n1 - 1);
+                        const sum = n1 + n2;
+                        return {
+                            q: `Add the fractions:`,
+                            nums: [[n1, den], [n2, den]],
+                            correct: `${sum}/${den}`,
+                            type: 'addFrac',
+                            qtype: 'addFrac'
+                        };
+                    }
                 },
                 3: () => {
-                    const den = randInt(3, 6);
-                    let n1 = randInt(1, den - 1), n2 = randInt(1, den - 1);
-                    while (n1 === n2) n2 = randInt(1, den - 1);
-                    const smaller = Math.random() < 0.5;
-                    return { q: smaller ? 'Which fraction is SMALLER?' : 'Which fraction is LARGER?', nums: [[n1, den], [n2, den]], type: 'compare', smaller };
+                    const r = Math.random();
+                    if (r < 0.3) {
+                        const den = randInt(3, 6);
+                        let n1 = randInt(1, den - 1), n2 = randInt(1, den - 1);
+                        while (n1 === n2) n2 = randInt(1, den - 1);
+                        const smaller = Math.random() < 0.5;
+                        return { q: smaller ? 'Which fraction is SMALLER?' : 'Which fraction is LARGER?', nums: [[n1, den], [n2, den]], type: 'compare', smaller, qtype: 'compare' };
+                    } else if (r < 0.55) {
+                        // Adding fractions
+                        const den = randInt(4, 8);
+                        const n1 = randInt(1, den - 2), n2 = randInt(1, den - n1 - 1);
+                        const sum = n1 + n2;
+                        return {
+                            q: `Add the fractions:`,
+                            nums: [[n1, den], [n2, den]],
+                            correct: `${sum}/${den}`,
+                            type: 'addFrac',
+                            qtype: 'addFrac'
+                        };
+                    } else {
+                        // Subtracting fractions (NEW)
+                        const den = randInt(4, 8);
+                        const n1 = randInt(2, den - 1), n2 = randInt(1, n1 - 1);
+                        const diff = n1 - n2;
+                        return {
+                            q: `Subtract the fractions:`,
+                            nums: [[n1, den], [n2, den]],
+                            correct: `${diff}/${den}`,
+                            type: 'subFrac',
+                            qtype: 'subFrac'
+                        };
+                    }
                 },
                 4: () => {
-                    if (Math.random() < 0.5) {
+                    const r = Math.random();
+                    if (r < 0.25) {
                         // equivalent fractions
                         const baseNum = randInt(1, 4), baseDen = randInt(baseNum + 1, 6);
                         const factor = randInt(2, 3);
@@ -421,22 +693,45 @@
                         const opts = [[correctNum, correctDen]];
                         while (opts.length < 4) {
                             const fn = randInt(1, correctDen - 1);
-                            const candidate = [fn, correctDen];
-                            if (!opts.some(o => o[0] === fn)) opts.push(candidate);
+                            if (!opts.some(o => o[0] === fn)) opts.push([fn, correctDen]);
                         }
-                        return { q: 'Which fraction equals ' + baseNum + '/' + baseDen + '?', nums: [baseNum, baseDen], type: 'equiv', opts, ans: 0 };
-                    } else {
+                        return { q: `Which fraction equals ${baseNum}/${baseDen}?`, nums: [baseNum, baseDen], type: 'equiv', opts, ans: 0, qtype: 'equiv' };
+                    } else if (r < 0.5) {
                         // compare different denominators
                         const d1 = randInt(3, 8), d2 = randInt(3, 8);
                         const n1 = randInt(1, d1 - 1), n2 = randInt(1, d2 - 1);
-                        while (n1 / d1 === n2 / d2) return questionGenerators.fractions[4]();
+                        if (n1 / d1 === n2 / d2) return questionGenerators.fractions[4]();
                         const smaller = Math.random() < 0.5;
-                        return { q: smaller ? 'Which fraction is SMALLER?' : 'Which is GREATER?', nums: [[n1, d1], [n2, d2]], type: 'compare', smaller };
+                        return { q: smaller ? 'Which fraction is SMALLER?' : 'Which is GREATER?', nums: [[n1, d1], [n2, d2]], type: 'compare', smaller, qtype: 'compare' };
+                    } else if (r < 0.75) {
+                        // Mixed numbers (NEW)
+                        const whole = randInt(1, 3);
+                        const den = randInt(2, 5);
+                        const num = randInt(1, den - 1);
+                        const improper = whole * den + num;
+                        return {
+                            q: `Convert to improper fraction:`,
+                            nums: [whole, num, den],
+                            correct: `${improper}/${den}`,
+                            type: 'mixed',
+                            qtype: 'mixed'
+                        };
+                    } else {
+                        // Subtracting fractions
+                        const den = randInt(4, 10);
+                        const n1 = randInt(3, den - 1), n2 = randInt(1, n1 - 1);
+                        return {
+                            q: `Subtract the fractions:`,
+                            nums: [[n1, den], [n2, den]],
+                            correct: `${n1 - n2}/${den}`,
+                            type: 'subFrac',
+                            qtype: 'subFrac'
+                        };
                     }
                 },
                 5: () => {
                     const r = Math.random();
-                    if (r < 0.4) {
+                    if (r < 0.2) {
                         // equivalent with larger denominators
                         const baseNum = randInt(1, 5), baseDen = randInt(baseNum + 1, 6);
                         const factor = randInt(2, 4);
@@ -446,96 +741,200 @@
                             const fn = randInt(1, correctDen - 1);
                             if (!opts.some(o => o[0] === fn)) opts.push([fn, correctDen]);
                         }
-                        return { q: 'Which fraction equals ' + baseNum + '/' + baseDen + '?', nums: [baseNum, baseDen], type: 'equiv', opts, ans: 0 };
-                    } else if (r < 0.7) {
+                        return { q: `Which fraction equals ${baseNum}/${baseDen}?`, nums: [baseNum, baseDen], type: 'equiv', opts, ans: 0, qtype: 'equiv' };
+                    } else if (r < 0.4) {
                         // compare with different, larger denominators
                         const d1 = randInt(5, 12), d2 = randInt(5, 12);
                         const n1 = randInt(1, d1 - 1), n2 = randInt(1, d2 - 1);
                         if (n1 / d1 === n2 / d2) return questionGenerators.fractions[5]();
                         const smaller = Math.random() < 0.5;
-                        return { q: smaller ? 'Which fraction is SMALLER?' : 'Which is GREATER?', nums: [[n1, d1], [n2, d2]], type: 'compare', smaller };
+                        return { q: smaller ? 'Which fraction is SMALLER?' : 'Which is GREATER?', nums: [[n1, d1], [n2, d2]], type: 'compare', smaller, qtype: 'compare' };
+                    } else if (r < 0.55) {
+                        // Adding fractions with larger denominators
+                        const den = randInt(6, 12);
+                        const n1 = randInt(1, Math.floor(den / 2)), n2 = randInt(1, Math.floor(den / 2));
+                        return {
+                            q: `Add the fractions:`,
+                            nums: [[n1, den], [n2, den]],
+                            correct: `${n1 + n2}/${den}`,
+                            type: 'addFrac',
+                            qtype: 'addFrac'
+                        };
+                    } else if (r < 0.7) {
+                        // Subtracting
+                        const den = randInt(6, 12);
+                        const n1 = randInt(4, den - 1), n2 = randInt(1, n1 - 1);
+                        return {
+                            q: `Subtract the fractions:`,
+                            nums: [[n1, den], [n2, den]],
+                            correct: `${n1 - n2}/${den}`,
+                            type: 'subFrac',
+                            qtype: 'subFrac'
+                        };
+                    } else if (r < 0.85) {
+                        // Mixed numbers
+                        const whole = randInt(2, 5);
+                        const den = randInt(3, 8);
+                        const num = randInt(1, den - 1);
+                        const improper = whole * den + num;
+                        return {
+                            q: `Convert to improper fraction:`,
+                            nums: [whole, num, den],
+                            correct: `${improper}/${den}`,
+                            type: 'mixed',
+                            qtype: 'mixed'
+                        };
                     } else {
                         // pie/bar with larger denominators
                         const den = randInt(6, 12), num = randInt(1, den - 1);
                         const type = pick(['pie', 'bar']);
-                        return { q: 'Identify the shaded portion:', nums: [num, den], type };
+                        return { q: 'Identify the shaded portion:', nums: [num, den], type, qtype: type };
                     }
                 },
             },
             geometry: {
                 1: () => {
-                    const a = randInt(2, 6), b = randInt(2, 6);
-                    return { q: 'Find the PERIMETER:', nums: [a, b], type: 'perim' };
+                    const r = Math.random();
+                    if (r < 0.6) {
+                        const a = randInt(2, 6), b = randInt(2, 6);
+                        return { q: 'Find the PERIMETER:', nums: [a, b], type: 'perim', qtype: 'perim' };
+                    } else {
+                        // Lines identification (NEW)
+                        const lineType = pick([0, 1, 2]); // 0=line, 1=ray, 2=segment
+                        return {
+                            q: 'What type of line is this?',
+                            nums: [lineType],
+                            type: 'line',
+                            opts: lineTypes,
+                            ans: lineType,
+                            qtype: 'line'
+                        };
+                    }
                 },
                 2: () => {
-                    if (Math.random() < 0.6) {
+                    const r = Math.random();
+                    if (r < 0.4) {
                         const a = randInt(2, 8), b = randInt(2, 8);
-                        return { q: 'Calculate the AREA:', nums: [a, b], type: 'area' };
+                        return { q: 'Calculate the AREA:', nums: [a, b], type: 'area', qtype: 'area' };
+                    } else if (r < 0.7) {
+                        return { q: 'What type of angle is this?', nums: [90], type: 'angle', opts: ['Acute', 'Right', 'Obtuse', 'Straight'], ans: 1, qtype: 'angle' };
                     } else {
-                        return { q: 'What type of angle is this?', nums: [90], type: 'angle', opts: ['Acute', 'Right', 'Obtuse', 'Straight'], ans: 1 };
+                        // Symmetry (NEW)
+                        const shape = pick(symmetryShapes.slice(0, 4));
+                        return {
+                            q: `How many lines of symmetry does a ${shape.name} have?`,
+                            nums: [shape.lines === 'infinite' ? 999 : shape.lines],
+                            type: 'symmetry',
+                            shapeName: shape.name,
+                            qtype: 'symmetry'
+                        };
                     }
                 },
                 3: () => {
                     const r = Math.random();
-                    if (r < 0.35) {
+                    if (r < 0.25) {
                         const a = randInt(3, 10), b = randInt(3, 10);
-                        return { q: pick(['Find the PERIMETER:', 'What is the perimeter?', 'Calculate perimeter:']), nums: [a, b], type: 'perim' };
+                        return { q: pick(['Find the PERIMETER:', 'What is the perimeter?']), nums: [a, b], type: 'perim', qtype: 'perim' };
+                    } else if (r < 0.5) {
+                        const a = randInt(3, 10), b = randInt(3, 10);
+                        return { q: pick(['Find the area:', 'Calculate the AREA:']), nums: [a, b], type: 'area', qtype: 'area' };
                     } else if (r < 0.7) {
-                        const a = randInt(3, 10), b = randInt(3, 10);
-                        return { q: pick(['Find the area:', 'Calculate the AREA:']), nums: [a, b], type: 'area' };
-                    } else {
                         const deg = pick([30, 45, 60, 120, 135, 150]);
                         const ans = deg < 90 ? 0 : 2;
-                        return { q: pick(['What type of angle is this?', 'Identify this angle:']), nums: [deg], type: 'angle', opts: ['Acute', 'Right', 'Obtuse', 'Straight'], ans };
+                        return { q: pick(['What type of angle is this?', 'Identify this angle:']), nums: [deg], type: 'angle', opts: ['Acute', 'Right', 'Obtuse', 'Straight'], ans, qtype: 'angle' };
+                    } else if (r < 0.85) {
+                        // Lines identification
+                        const lineType = pick([0, 1, 2]);
+                        return {
+                            q: 'What type of line is this?',
+                            nums: [lineType],
+                            type: 'line',
+                            opts: lineTypes,
+                            ans: lineType,
+                            qtype: 'line'
+                        };
+                    } else {
+                        // Symmetry
+                        const shape = pick(symmetryShapes.slice(0, 5));
+                        return {
+                            q: `How many lines of symmetry does a ${shape.name} have?`,
+                            nums: [shape.lines === 'infinite' ? 999 : shape.lines],
+                            type: 'symmetry',
+                            shapeName: shape.name,
+                            qtype: 'symmetry'
+                        };
                     }
                 },
                 4: () => {
                     const r = Math.random();
-                    if (r < 0.4) {
+                    if (r < 0.25) {
                         const sides = pick([5, 6, 7, 8]);
-                        const names = Object.values(shapeNames).filter(n => n !== shapeNames[sides]);
-                        const wrongOpts = [];
-                        while (wrongOpts.length < 3) { const n = pick(names); if (!wrongOpts.includes(n)) wrongOpts.push(n); }
-                        const opts = [shapeNames[sides], ...wrongOpts];
-                        return { q: 'Name this polygon:', nums: [sides], type: 'shape', opts, ans: 0 };
-                    } else if (r < 0.7) {
+                        const allNames = Object.values(shapeNames);
+                        const wrongOpts = allNames.filter(n => n !== shapeNames[sides]).slice(0, 3);
+                        return { q: 'Name this polygon:', nums: [sides], type: 'shape', opts: [shapeNames[sides], ...wrongOpts], ans: 0, qtype: 'shape' };
+                    } else if (r < 0.45) {
                         const deg = randInt(10, 170);
-                        let ans;
-                        if (deg < 90) ans = 0;
-                        else if (deg === 90) ans = 1;
-                        else ans = 2;
-                        return { q: 'What kind of angle?', nums: [deg], type: 'angle', opts: ['Acute', 'Right', 'Obtuse', 'Straight'], ans };
+                        let ans = deg < 90 ? 0 : (deg === 90 ? 1 : 2);
+                        return { q: 'What kind of angle?', nums: [deg], type: 'angle', opts: ['Acute', 'Right', 'Obtuse', 'Straight'], ans, qtype: 'angle' };
+                    } else if (r < 0.65) {
+                        if (Math.random() < 0.5) {
+                            const a = randInt(4, 12), b = randInt(4, 12);
+                            return { q: 'Find the PERIMETER:', nums: [a, b], type: 'perim', qtype: 'perim' };
+                        } else {
+                            const a = randInt(4, 12), b = randInt(4, 12);
+                            return { q: 'Calculate the AREA:', nums: [a, b], type: 'area', qtype: 'area' };
+                        }
                     } else {
-                        const a = randInt(4, 12), b = randInt(4, 12);
-                        return { q: pick(['Find the PERIMETER:', 'Calculate the AREA:']).includes('PERIM')
-                            ? { q: 'Find the PERIMETER:', nums: [a, b], type: 'perim' }
-                            : { q: 'Calculate the AREA:', nums: [a, b], type: 'area' }
+                        // Symmetry
+                        const shape = pick(symmetryShapes);
+                        return {
+                            q: `How many lines of symmetry does a ${shape.name} have?`,
+                            nums: [shape.lines === 'infinite' ? 999 : shape.lines],
+                            type: 'symmetry',
+                            shapeName: shape.name,
+                            qtype: 'symmetry'
                         };
                     }
                 },
                 5: () => {
                     const r = Math.random();
-                    if (r < 0.25) {
-                        const a = randInt(5, 12), b = randInt(5, 12);
-                        return { q: 'Calculate perimeter:', nums: [a, b], type: 'perim' };
-                    } else if (r < 0.5) {
-                        const a = randInt(5, 12), b = randInt(5, 12);
-                        return { q: 'Find the area:', nums: [a, b], type: 'area' };
-                    } else if (r < 0.75) {
+                    if (r < 0.2) {
+                        const a = randInt(5, 15), b = randInt(5, 15);
+                        return { q: 'Calculate perimeter:', nums: [a, b], type: 'perim', qtype: 'perim' };
+                    } else if (r < 0.4) {
+                        const a = randInt(5, 15), b = randInt(5, 15);
+                        return { q: 'Find the area:', nums: [a, b], type: 'area', qtype: 'area' };
+                    } else if (r < 0.55) {
                         const deg = pick([85, 89, 91, 95, 120, 135, 175, 15, 5]);
-                        let ans;
-                        if (deg < 90) ans = 0;
-                        else if (deg === 90) ans = 1;
-                        else if (deg < 180) ans = 2;
-                        else ans = 3;
-                        return { q: 'What kind of angle?', nums: [deg], type: 'angle', opts: ['Acute', 'Right', 'Obtuse', 'Straight'], ans };
-                    } else {
+                        let ans = deg < 90 ? 0 : (deg === 90 ? 1 : (deg < 180 ? 2 : 3));
+                        return { q: 'What kind of angle?', nums: [deg], type: 'angle', opts: ['Acute', 'Right', 'Obtuse', 'Straight'], ans, qtype: 'angle' };
+                    } else if (r < 0.7) {
                         const sides = pick([3, 5, 6, 7, 8]);
-                        const names = Object.values(shapeNames).filter(n => n !== shapeNames[sides]);
-                        const wrongOpts = [];
-                        while (wrongOpts.length < 3) { const n = pick(names); if (!wrongOpts.includes(n)) wrongOpts.push(n); }
-                        const opts = [shapeNames[sides], ...wrongOpts];
-                        return { q: 'How many sides does this shape have? Name it:', nums: [sides], type: 'shape', opts, ans: 0 };
+                        const allNames = Object.values(shapeNames);
+                        const wrongOpts = allNames.filter(n => n !== shapeNames[sides]).slice(0, 3);
+                        return { q: 'Name this polygon:', nums: [sides], type: 'shape', opts: [shapeNames[sides], ...wrongOpts], ans: 0, qtype: 'shape' };
+                    } else if (r < 0.85) {
+                        // Symmetry hard
+                        const shape = pick(symmetryShapes);
+                        return {
+                            q: `How many lines of symmetry does a ${shape.name} have?`,
+                            nums: [shape.lines === 'infinite' ? 999 : shape.lines],
+                            type: 'symmetry',
+                            shapeName: shape.name,
+                            qtype: 'symmetry'
+                        };
+                    } else {
+                        // Composite area: two rectangles
+                        const a1 = randInt(3, 8), b1 = randInt(3, 8);
+                        const a2 = randInt(2, 5), b2 = randInt(2, 5);
+                        const total = a1 * b1 + a2 * b2;
+                        return {
+                            q: `Two rectangles: ${a1}×${b1} and ${a2}×${b2}. Total area?`,
+                            nums: [a1, b1, a2, b2],
+                            correct: total,
+                            type: 'composite',
+                            qtype: 'composite'
+                        };
                     }
                 },
             },
@@ -543,102 +942,198 @@
                 1: () => {
                     if (Math.random() < 0.5) {
                         const b = randInt(2, 5), mult = randInt(1, 4), a = b * mult;
-                        return { q: pick(divTemplates)(a, b), nums: [a, b], type: 'div' };
+                        return { q: pick(divTemplates)(a, b), nums: [a, b], type: 'div', qtype: 'div' };
                     } else {
                         const a = randInt(2, 10), b = randInt(2, 10);
-                        return { q: pick(addTemplates)(a, b), nums: [a, b], type: 'add' };
+                        return { q: pick(addTemplates)(a, b), nums: [a, b], type: 'add', qtype: 'add' };
                     }
                 },
                 2: () => {
                     const r = Math.random();
-                    if (r < 0.5) {
+                    if (r < 0.35) {
                         const a = randInt(2, 6), b = randInt(2, 5);
-                        return { q: pick(moneyTemplates)(a, b), nums: [a, b], type: 'money' };
-                    } else {
+                        return { q: pick(moneyTemplates)(a, b), nums: [a, b], type: 'money', qtype: 'money' };
+                    } else if (r < 0.7) {
                         const a = randInt(10, 30), b = randInt(5, a - 1);
-                        return { q: pick(diffTemplates)(a, b), nums: [a, b], type: 'diff' };
+                        return { q: pick(diffTemplates)(a, b), nums: [a, b], type: 'diff', qtype: 'diff' };
+                    } else {
+                        // Time problems (NEW)
+                        const startHour = randInt(1, 11);
+                        const startMin = pick([0, 15, 30, 45]);
+                        const durHours = randInt(1, 2);
+                        const durMins = pick([0, 30]);
+                        let endHour = startHour + durHours;
+                        let endMin = startMin + durMins;
+                        if (endMin >= 60) { endMin -= 60; endHour++; }
+                        if (endHour > 12) endHour -= 12;
+                        const startStr = `${startHour}:${startMin.toString().padStart(2, '0')}`;
+                        const durStr = durMins > 0 ? `${durHours} hour${durHours > 1 ? 's' : ''} ${durMins} min` : `${durHours} hour${durHours > 1 ? 's' : ''}`;
+                        const endStr = `${endHour}:${endMin.toString().padStart(2, '0')}`;
+                        return {
+                            q: pick(timeTemplates)(startStr, durStr),
+                            nums: [startHour, startMin, durHours, durMins],
+                            correct: endStr,
+                            type: 'time',
+                            qtype: 'time'
+                        };
                     }
                 },
                 3: () => {
                     const r = Math.random();
-                    if (r < 0.25) {
+                    if (r < 0.2) {
                         const b = randInt(2, 8), mult = randInt(2, 6), a = b * mult;
-                        return { q: pick(divTemplates)(a, b), nums: [a, b], type: 'div' };
-                    } else if (r < 0.5) {
+                        return { q: pick(divTemplates)(a, b), nums: [a, b], type: 'div', qtype: 'div' };
+                    } else if (r < 0.4) {
                         const a = randInt(2, 8), b = randInt(3, 7);
-                        return { q: pick(moneyTemplates)(a, b), nums: [a, b], type: 'money' };
-                    } else if (r < 0.75) {
+                        return { q: pick(moneyTemplates)(a, b), nums: [a, b], type: 'money', qtype: 'money' };
+                    } else if (r < 0.6) {
                         const a = randInt(15, 50), b = randInt(5, a - 1);
-                        return { q: pick(diffTemplates)(a, b), nums: [a, b], type: 'diff' };
+                        return { q: pick(diffTemplates)(a, b), nums: [a, b], type: 'diff', qtype: 'diff' };
+                    } else if (r < 0.8) {
+                        // Time problems
+                        const startHour = randInt(1, 11);
+                        const startMin = pick([0, 15, 30, 45]);
+                        const durHours = randInt(1, 3);
+                        const durMins = pick([0, 15, 30, 45]);
+                        let endHour = startHour + durHours;
+                        let endMin = startMin + durMins;
+                        if (endMin >= 60) { endMin -= 60; endHour++; }
+                        if (endHour > 12) endHour -= 12;
+                        const startStr = `${startHour}:${startMin.toString().padStart(2, '0')}`;
+                        const durStr = durMins > 0 ? `${durHours}h ${durMins}m` : `${durHours} hour${durHours > 1 ? 's' : ''}`;
+                        return {
+                            q: pick(timeTemplates)(startStr, durStr),
+                            nums: [startHour, startMin, durHours, durMins],
+                            correct: `${endHour}:${endMin.toString().padStart(2, '0')}`,
+                            type: 'time',
+                            qtype: 'time'
+                        };
                     } else {
-                        const a = randInt(5, 20), b = randInt(5, 20);
-                        return { q: pick(addTemplates)(a, b), nums: [a, b], type: 'add' };
+                        // Measurement conversion (NEW)
+                        const conversions = [
+                            { from: 'feet', to: 'inches', mult: 12 },
+                            { from: 'yards', to: 'feet', mult: 3 },
+                        ];
+                        const conv = pick(conversions);
+                        const val = randInt(1, 5);
+                        return {
+                            q: pick(measureTemplates)(val, conv.from, conv.to),
+                            nums: [val, conv.mult],
+                            correct: val * conv.mult,
+                            type: 'measure',
+                            qtype: 'measure'
+                        };
                     }
                 },
                 4: () => {
-                    if (Math.random() < 0.5) {
+                    const r = Math.random();
+                    if (r < 0.3) {
                         // two-step: buy items, get change
                         const count = randInt(2, 6), price = randInt(3, 10);
                         const total = count * price;
                         const paid = Math.ceil(total / 10) * 10 + pick([0, 10, 20]);
                         if (paid <= total) return questionGenerators.word_problems[4]();
                         const change = paid - total;
-                        return { q: 'Buy ' + count + ' items at $' + price + ' each, pay with $' + paid + '. Change?', nums: [paid, total], type: 'twostep', twostepAnswer: change };
-                    } else {
+                        return { q: `Buy ${count} items at $${price} each, pay with $${paid}. Change?`, nums: [paid, total], type: 'twostep', twostepAnswer: change, qtype: 'twostep' };
+                    } else if (r < 0.5) {
                         // two-step: multiply then subtract
                         const packs = randInt(2, 5), perPack = randInt(4, 10);
                         const total = packs * perPack;
                         const giveAway = randInt(3, Math.floor(total / 2));
-                        return { q: packs + ' packs of ' + perPack + ' stickers. Give away ' + giveAway + '. How many left?', nums: [total, giveAway], type: 'twostep', twostepAnswer: total - giveAway };
+                        return { q: `${packs} packs of ${perPack} stickers. Give away ${giveAway}. How many left?`, nums: [total, giveAway], type: 'twostep', twostepAnswer: total - giveAway, qtype: 'twostep' };
+                    } else if (r < 0.7) {
+                        // Time problems
+                        const startHour = randInt(1, 10);
+                        const startMin = pick([0, 15, 30, 45]);
+                        const durHours = randInt(2, 4);
+                        const durMins = pick([0, 15, 30, 45]);
+                        let endHour = startHour + durHours;
+                        let endMin = startMin + durMins;
+                        if (endMin >= 60) { endMin -= 60; endHour++; }
+                        if (endHour > 12) endHour -= 12;
+                        const startStr = `${startHour}:${startMin.toString().padStart(2, '0')}`;
+                        const durStr = `${durHours}h ${durMins}m`;
+                        return {
+                            q: pick(timeTemplates)(startStr, durStr),
+                            nums: [startHour, startMin, durHours, durMins],
+                            correct: `${endHour}:${endMin.toString().padStart(2, '0')}`,
+                            type: 'time',
+                            qtype: 'time'
+                        };
+                    } else {
+                        // Measurement
+                        const conversions = [
+                            { from: 'feet', to: 'inches', mult: 12 },
+                            { from: 'yards', to: 'feet', mult: 3 },
+                            { from: 'yards', to: 'inches', mult: 36 },
+                        ];
+                        const conv = pick(conversions);
+                        const val = randInt(2, 6);
+                        return {
+                            q: pick(measureTemplates)(val, conv.from, conv.to),
+                            nums: [val, conv.mult],
+                            correct: val * conv.mult,
+                            type: 'measure',
+                            qtype: 'measure'
+                        };
                     }
                 },
                 5: () => {
                     const r = Math.random();
-                    if (r < 0.35) {
-                        // two-step with larger numbers
+                    if (r < 0.25) {
+                        // Hard two-step with larger numbers
                         const count = randInt(3, 8), price = randInt(5, 15);
                         const total = count * price;
                         const paid = Math.ceil(total / 10) * 10 + pick([10, 20, 50]);
                         if (paid <= total) return questionGenerators.word_problems[5]();
-                        const change = paid - total;
-                        return { q: 'Buy ' + count + ' items at $' + price + ' each, pay with $' + paid + '. Change?', nums: [paid, total], type: 'twostep', twostepAnswer: change };
-                    } else if (r < 0.65) {
-                        // earn and spend
+                        return { q: `Buy ${count} items at $${price} each, pay with $${paid}. Change?`, nums: [paid, total], type: 'twostep', twostepAnswer: paid - total, qtype: 'twostep' };
+                    } else if (r < 0.45) {
+                        // earn and spend (3-step thinking)
                         const chores = randInt(3, 8), earn = randInt(5, 15);
                         const total = chores * earn;
                         const spend = randInt(10, Math.floor(total * 0.8));
-                        return { q: 'Earn $' + earn + ' for each of ' + chores + ' chores. Spend $' + spend + '. How much left?', nums: [total, spend], type: 'twostep', twostepAnswer: total - spend };
-                    } else {
+                        return { q: `Earn $${earn} for each of ${chores} chores. Spend $${spend}. How much left?`, nums: [total, spend], type: 'twostep', twostepAnswer: total - spend, qtype: 'twostep' };
+                    } else if (r < 0.6) {
                         // large division
                         const b = randInt(4, 10), mult = randInt(5, 20), a = b * mult;
-                        return { q: pick(divTemplates)(a, b), nums: [a, b], type: 'div' };
+                        return { q: pick(divTemplates)(a, b), nums: [a, b], type: 'div', qtype: 'div' };
+                    } else if (r < 0.8) {
+                        // Hard time problems
+                        const startHour = randInt(8, 11);
+                        const startMin = pick([0, 15, 30, 45]);
+                        const durHours = randInt(3, 6);
+                        const durMins = pick([15, 30, 45]);
+                        let endHour = startHour + durHours;
+                        let endMin = startMin + durMins;
+                        if (endMin >= 60) { endMin -= 60; endHour++; }
+                        while (endHour > 12) endHour -= 12;
+                        const startStr = `${startHour}:${startMin.toString().padStart(2, '0')}`;
+                        const durStr = `${durHours} hours ${durMins} minutes`;
+                        return {
+                            q: pick(timeTemplates)(startStr, durStr),
+                            nums: [startHour, startMin, durHours, durMins],
+                            correct: `${endHour}:${endMin.toString().padStart(2, '0')}`,
+                            type: 'time',
+                            qtype: 'time'
+                        };
+                    } else {
+                        // Measurement - harder conversions
+                        const conversions = [
+                            { from: 'yards', to: 'inches', mult: 36 },
+                            { from: 'feet', to: 'inches', mult: 12 },
+                        ];
+                        const conv = pick(conversions);
+                        const val = randInt(3, 10);
+                        return {
+                            q: pick(measureTemplates)(val, conv.from, conv.to),
+                            nums: [val, conv.mult],
+                            correct: val * conv.mult,
+                            type: 'measure',
+                            qtype: 'measure'
+                        };
                     }
                 },
             },
-        };
-
-        // Fix geometry level 4 nested return issue
-        const _origGeo4 = questionGenerators.geometry[4];
-        questionGenerators.geometry[4] = () => {
-            const r = Math.random();
-            if (r < 0.4) {
-                const sides = pick([5, 6, 7, 8]);
-                const allNames = Object.values(shapeNames);
-                const wrongOpts = allNames.filter(n => n !== shapeNames[sides]).slice(0, 3);
-                return { q: 'Name this polygon:', nums: [sides], type: 'shape', opts: [shapeNames[sides], ...wrongOpts], ans: 0 };
-            } else if (r < 0.7) {
-                const deg = randInt(10, 170);
-                let ans = deg < 90 ? 0 : (deg === 90 ? 1 : 2);
-                return { q: 'What kind of angle?', nums: [deg], type: 'angle', opts: ['Acute', 'Right', 'Obtuse', 'Straight'], ans };
-            } else {
-                if (Math.random() < 0.5) {
-                    const a = randInt(4, 12), b = randInt(4, 12);
-                    return { q: 'Find the PERIMETER:', nums: [a, b], type: 'perim' };
-                } else {
-                    const a = randInt(4, 12), b = randInt(4, 12);
-                    return { q: 'Calculate the AREA:', nums: [a, b], type: 'area' };
-                }
-            }
         };
 
         // --- Quiz State ---
@@ -654,6 +1149,8 @@
             difficulty.level = 2;
             difficulty.streak = 0;
             difficulty.maxReached = 2;
+            usedQuestions.clear();
+            lastQuestionType = '';
             document.getElementById('quizSelector').style.display = 'none';
             document.getElementById('quizArea').style.display = 'block';
             document.getElementById('resultsScreen').classList.remove('visible');
@@ -664,7 +1161,7 @@
 
         function loadQuestion() {
             answered = false;
-            const q = generateQuestion(currentQuiz, difficulty.level);
+            const q = generateUniqueQuestion(currentQuiz, difficulty.level);
             document.getElementById('questionCounter').textContent = 'Question ' + (currentQuestion+1) + '/10';
             document.getElementById('progressFill').style.width = ((currentQuestion+1)*10) + '%';
             document.getElementById('scoreDisplay').textContent = score;
@@ -678,10 +1175,31 @@
             let correct, answers;
 
             if (currentQuiz === 'multiplication') {
-                correct = q.nums[0] * q.nums[1];
-                answers = genWrong(correct, 4);
-                document.getElementById('equation').textContent = q.nums[0] + ' × ' + q.nums[1] + ' = ?';
-                drawGrid(Math.min(q.nums[0], 10), Math.min(q.nums[1], 10));
+                if (q.qtype === 'array' || q.qtype === 'largemult') {
+                    correct = q.nums[0] * q.nums[1];
+                    answers = genWrong(correct, 4);
+                    document.getElementById('equation').textContent = q.nums[0] + ' × ' + q.nums[1] + ' = ?';
+                    if (q.qtype === 'array') {
+                        drawGrid(Math.min(q.nums[0], 10), Math.min(q.nums[1], 10));
+                    } else {
+                        drawLargeMult(q.nums[0], q.nums[1]);
+                    }
+                } else if (q.qtype === 'skip') {
+                    correct = q.correct;
+                    answers = genWrong(correct, 4);
+                    document.getElementById('equation').textContent = '';
+                    drawNumberLine(q.nums[0], correct);
+                } else if (q.qtype === 'missing') {
+                    correct = q.correct;
+                    answers = genWrong(correct, 4);
+                    document.getElementById('equation').textContent = q.q;
+                    drawMissingArray(q.nums[0], q.nums[1], q.hideFirst);
+                } else if (q.qtype === 'compare') {
+                    correct = q.correct;
+                    answers = [`${q.nums[0][0]}×${q.nums[0][1]}`, `${q.nums[1][0]}×${q.nums[1][1]}`, 'Equal', 'Cannot tell'];
+                    document.getElementById('equation').textContent = '';
+                    drawCompareArrays(q.nums[0], q.nums[1]);
+                }
             } else if (currentQuiz === 'fractions') {
                 if (q.type === 'pie' || q.type === 'bar') {
                     correct = q.nums[0] + '/' + q.nums[1];
@@ -701,6 +1219,24 @@
                     answers = q.opts.map(o => o[0]+'/'+o[1]);
                     document.getElementById('equation').textContent = q.nums[0]+'/'+q.nums[1] + ' = ?';
                     drawBar(q.nums[0], q.nums[1]);
+                } else if (q.type === 'addFrac') {
+                    correct = q.correct;
+                    const parts = correct.split('/');
+                    answers = genFrac(parseInt(parts[0]), parseInt(parts[1]));
+                    document.getElementById('equation').textContent = `${q.nums[0][0]}/${q.nums[0][1]} + ${q.nums[1][0]}/${q.nums[1][1]} = ?`;
+                    drawFractionAddition(q.nums[0], q.nums[1]);
+                } else if (q.type === 'subFrac') {
+                    correct = q.correct;
+                    const parts = correct.split('/');
+                    answers = genFrac(parseInt(parts[0]), parseInt(parts[1]));
+                    document.getElementById('equation').textContent = `${q.nums[0][0]}/${q.nums[0][1]} − ${q.nums[1][0]}/${q.nums[1][1]} = ?`;
+                    drawFractionSubtraction(q.nums[0], q.nums[1]);
+                } else if (q.type === 'mixed') {
+                    correct = q.correct;
+                    const parts = correct.split('/');
+                    answers = genFrac(parseInt(parts[0]), parseInt(parts[1]));
+                    document.getElementById('equation').textContent = `${q.nums[0]} ${q.nums[1]}/${q.nums[2]} = ?`;
+                    drawMixedNumber(q.nums[0], q.nums[1], q.nums[2]);
                 }
             } else if (currentQuiz === 'geometry') {
                 if (q.type === 'perim') {
@@ -723,6 +1259,27 @@
                     answers = [...q.opts];
                     document.getElementById('equation').textContent = '';
                     drawPolygon(q.nums[0]);
+                } else if (q.type === 'line') {
+                    correct = q.opts[q.ans];
+                    answers = [...q.opts];
+                    document.getElementById('equation').textContent = '';
+                    drawLineDiagram(q.nums[0]);
+                } else if (q.type === 'symmetry') {
+                    const symVal = q.nums[0];
+                    if (symVal === 999) {
+                        correct = 'Infinite';
+                        answers = ['0', '1', '2', 'Infinite'];
+                    } else {
+                        correct = symVal;
+                        answers = genWrong(symVal, 4);
+                    }
+                    document.getElementById('equation').textContent = q.shapeName;
+                    drawSymmetry(q.shapeName);
+                } else if (q.type === 'composite') {
+                    correct = q.correct;
+                    answers = genWrong(correct, 4);
+                    document.getElementById('equation').textContent = 'Total Area = ?';
+                    drawCompositeShape(q.nums[0], q.nums[1], q.nums[2], q.nums[3]);
                 }
             } else if (currentQuiz === 'word_problems') {
                 if (q.type === 'twostep') {
@@ -734,12 +1291,12 @@
                         answers = genWrong(correct, 4);
                     }
                     document.getElementById('equation').textContent = '';
-                    drawMoney(Math.min(q.nums[0], 6), Math.floor(q.nums[0] / Math.max(q.nums[1], 1)) || 1);
+                    drawMoney(Math.min(q.nums[0] / 10, 6), Math.floor(q.nums[0] / 6) || 5);
                 } else if (q.type === 'div') {
                     correct = q.nums[0] / q.nums[1];
                     answers = genWrong(correct, 4);
                     document.getElementById('equation').textContent = q.nums[0] + ' ÷ ' + q.nums[1] + ' = ?';
-                    drawSharing(Math.min(q.nums[0], 40), q.nums[1]);
+                    drawSharing(Math.min(q.nums[0], 40), Math.min(q.nums[1], 10));
                 } else if (q.type === 'money') {
                     correct = '$' + (q.nums[0]*q.nums[1]);
                     answers = genWrong(q.nums[0]*q.nums[1], 4).map(a => '$'+a);
@@ -748,13 +1305,23 @@
                 } else if (q.type === 'diff') {
                     correct = q.nums[0] - q.nums[1];
                     answers = genWrong(correct, 4);
-                    document.getElementById('equation').textContent = q.nums[0] + ' - ' + q.nums[1] + ' = ?';
+                    document.getElementById('equation').textContent = q.nums[0] + ' − ' + q.nums[1] + ' = ?';
                     drawDiff(q.nums[0], q.nums[1]);
                 } else if (q.type === 'add') {
                     correct = '$' + (q.nums[0]+q.nums[1]);
                     answers = genWrong(q.nums[0]+q.nums[1], 4).map(a => '$'+a);
                     document.getElementById('equation').textContent = '$' + q.nums[0] + ' + $' + q.nums[1] + ' = ?';
                     drawMoney(2, q.nums[0]);
+                } else if (q.type === 'time') {
+                    correct = q.correct;
+                    answers = genTimeAnswers(q.correct);
+                    document.getElementById('equation').textContent = '';
+                    drawClock(q.nums[0], q.nums[1]);
+                } else if (q.type === 'measure') {
+                    correct = q.correct;
+                    answers = genWrong(correct, 4);
+                    document.getElementById('equation').textContent = '';
+                    drawRuler(q.nums[0], q.nums[1]);
                 }
             }
 
@@ -771,7 +1338,6 @@
                 if(w > 0 && w !== c) s.add(w);
                 attempts++;
             }
-            // fallback if not enough distractors
             while(s.size < n) s.add(c + s.size);
             return Array.from(s);
         }
@@ -780,17 +1346,42 @@
             const a = [num+'/'+den];
             let attempts = 0;
             while(a.length < 4 && attempts < 50) {
-                const n = randInt(1, den);
+                const n = randInt(1, Math.max(den, num + 3));
                 const f = n+'/'+den;
-                if(!a.includes(f)) a.push(f);
+                if(!a.includes(f) && n !== num) a.push(f);
                 attempts++;
             }
-            // fallback for small denominators
             while(a.length < 4) {
-                const n = a.length;
+                const n = a.length + 1;
                 a.push(n + '/' + (den + 1));
             }
             return a;
+        }
+
+        function genTimeAnswers(correct) {
+            const parts = correct.split(':');
+            const hr = parseInt(parts[0]);
+            const min = parseInt(parts[1]);
+            const answers = [correct];
+            const offsets = [[-1, 0], [1, 0], [0, 30], [0, -30]];
+            for (const [dh, dm] of offsets) {
+                if (answers.length >= 4) break;
+                let nh = hr + dh;
+                let nm = min + dm;
+                if (nm < 0) { nm += 60; nh--; }
+                if (nm >= 60) { nm -= 60; nh++; }
+                if (nh <= 0) nh += 12;
+                if (nh > 12) nh -= 12;
+                const str = `${nh}:${nm.toString().padStart(2, '0')}`;
+                if (!answers.includes(str)) answers.push(str);
+            }
+            while (answers.length < 4) {
+                const fakeHr = randInt(1, 12);
+                const fakeMin = pick([0, 15, 30, 45]);
+                const str = `${fakeHr}:${fakeMin.toString().padStart(2, '0')}`;
+                if (!answers.includes(str)) answers.push(str);
+            }
+            return answers;
         }
 
         function shuffle(arr, correct) {
@@ -852,7 +1443,8 @@
             document.getElementById('resultLevel').textContent = 'You reached difficulty level ' + difficulty.maxReached + ' of 5';
         }
 
-        // Drawing functions
+        // ============ DRAWING FUNCTIONS ============
+
         function drawGrid(rows, cols) {
             const size = Math.min(28, 180/Math.max(rows,cols));
             const gap = 4;
@@ -870,6 +1462,109 @@
             ctx.font = 'bold 14px sans-serif';
             ctx.textAlign = 'center';
             ctx.fillText(rows+' rows × '+cols+' columns', canvas.width/2, sy+rows*(size+gap)+20);
+        }
+
+        function drawLargeMult(a, b) {
+            ctx.fillStyle = '#fff';
+            ctx.font = 'bold 48px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText(`${a} × ${b}`, canvas.width/2, canvas.height/2 + 15);
+        }
+
+        function drawNumberLine(step, answer) {
+            const y = canvas.height / 2;
+            const startX = 50, endX = 450;
+            // Draw line
+            ctx.strokeStyle = '#fff';
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.moveTo(startX, y);
+            ctx.lineTo(endX, y);
+            ctx.stroke();
+            // Draw points and hops
+            const points = [step, step*2, step*3, answer];
+            const spacing = (endX - startX) / 4;
+            for (let i = 0; i < 4; i++) {
+                const x = startX + spacing * (i + 1);
+                // Draw tick
+                ctx.beginPath();
+                ctx.moveTo(x, y - 10);
+                ctx.lineTo(x, y + 10);
+                ctx.stroke();
+                // Draw number (or ? for last)
+                ctx.fillStyle = i === 3 ? '#ffab00' : '#fff';
+                ctx.font = 'bold 18px sans-serif';
+                ctx.textAlign = 'center';
+                ctx.fillText(i === 3 ? '?' : points[i], x, y + 35);
+                // Draw hop arc
+                if (i < 3) {
+                    ctx.strokeStyle = colors[i];
+                    ctx.lineWidth = 2;
+                    ctx.beginPath();
+                    ctx.arc(x + spacing/2, y, spacing/2 - 5, Math.PI, 0);
+                    ctx.stroke();
+                    ctx.fillStyle = colors[i];
+                    ctx.font = '12px sans-serif';
+                    ctx.fillText('+' + step, x + spacing/2, y - spacing/2 + 10);
+                }
+            }
+            ctx.fillStyle = '#a0aec0';
+            ctx.font = '14px sans-serif';
+            ctx.fillText(`Skip counting by ${step}`, canvas.width/2, 30);
+        }
+
+        function drawMissingArray(a, b, hideFirst) {
+            const rows = Math.min(a, 8);
+            const cols = Math.min(b, 8);
+            const size = 20, gap = 3;
+            const sx = (canvas.width - cols*(size+gap))/2;
+            const sy = 40;
+            for(let r=0; r<rows; r++) {
+                for(let c=0; c<cols; c++) {
+                    ctx.fillStyle = colors[r%colors.length];
+                    ctx.beginPath();
+                    ctx.roundRect(sx+c*(size+gap), sy+r*(size+gap), size, size, 3);
+                    ctx.fill();
+                }
+            }
+            // Draw equation with ?
+            ctx.fillStyle = '#fff';
+            ctx.font = 'bold 16px sans-serif';
+            ctx.textAlign = 'center';
+            const label = hideFirst ? `? rows × ${b} cols = ${a*b}` : `${a} rows × ? cols = ${a*b}`;
+            ctx.fillText(label, canvas.width/2, sy + rows*(size+gap) + 25);
+        }
+
+        function drawCompareArrays(pair1, pair2) {
+            const [a1, b1] = pair1;
+            const [a2, b2] = pair2;
+            const size = 12, gap = 2;
+            // Left array
+            const sx1 = 60;
+            const sy = 50;
+            for(let r=0; r<Math.min(a1,6); r++) {
+                for(let c=0; c<Math.min(b1,6); c++) {
+                    ctx.fillStyle = '#3498db';
+                    ctx.fillRect(sx1+c*(size+gap), sy+r*(size+gap), size, size);
+                }
+            }
+            ctx.fillStyle = '#fff';
+            ctx.font = 'bold 14px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText(`${a1}×${b1}=${a1*b1}`, sx1 + Math.min(b1,6)*(size+gap)/2, sy + Math.min(a1,6)*(size+gap) + 20);
+            // Right array
+            const sx2 = 300;
+            for(let r=0; r<Math.min(a2,6); r++) {
+                for(let c=0; c<Math.min(b2,6); c++) {
+                    ctx.fillStyle = '#e74c3c';
+                    ctx.fillRect(sx2+c*(size+gap), sy+r*(size+gap), size, size);
+                }
+            }
+            ctx.fillText(`${a2}×${b2}=${a2*b2}`, sx2 + Math.min(b2,6)*(size+gap)/2, sy + Math.min(a2,6)*(size+gap) + 20);
+            // VS
+            ctx.fillStyle = '#ffab00';
+            ctx.font = 'bold 24px sans-serif';
+            ctx.fillText('VS', canvas.width/2, canvas.height/2);
         }
 
         function drawPie(num, den) {
@@ -919,6 +1614,104 @@
                 ctx.strokeStyle = '#fff';
                 ctx.strokeRect(x+i*pw, y, pw-2, h);
             }
+        }
+
+        function drawFractionAddition(f1, f2) {
+            const w = 120, h = 30, y = canvas.height/2 - 15;
+            // First fraction bar
+            drawBarAt(50, y, w, h, f1[0], f1[1], '#3498db');
+            // Plus sign
+            ctx.fillStyle = '#fff';
+            ctx.font = 'bold 24px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText('+', 195, y + 22);
+            // Second fraction bar
+            drawBarAt(220, y, w, h, f2[0], f2[1], '#2ecc71');
+            // Equals
+            ctx.fillText('=', 365, y + 22);
+            // Result bar (empty - they need to figure it out)
+            ctx.fillStyle = '#ffab00';
+            ctx.font = 'bold 20px sans-serif';
+            ctx.fillText('?', 430, y + 25);
+        }
+
+        function drawFractionSubtraction(f1, f2) {
+            const w = 200, h = 40, y = canvas.height/2 - 20;
+            const x = (canvas.width - w) / 2;
+            const pw = w / f1[1];
+            // Draw all parts
+            for(let i = 0; i < f1[1]; i++) {
+                if (i < f2[0]) {
+                    // Crossed out portion
+                    ctx.fillStyle = 'rgba(231, 76, 60, 0.5)';
+                    ctx.fillRect(x + i*pw, y, pw-2, h);
+                    // Draw X
+                    ctx.strokeStyle = '#c0392b';
+                    ctx.lineWidth = 3;
+                    ctx.beginPath();
+                    ctx.moveTo(x + i*pw + 5, y + 5);
+                    ctx.lineTo(x + (i+1)*pw - 7, y + h - 5);
+                    ctx.moveTo(x + (i+1)*pw - 7, y + 5);
+                    ctx.lineTo(x + i*pw + 5, y + h - 5);
+                    ctx.stroke();
+                } else if (i < f1[0]) {
+                    // Remaining
+                    ctx.fillStyle = '#2ecc71';
+                    ctx.fillRect(x + i*pw, y, pw-2, h);
+                } else {
+                    ctx.fillStyle = 'rgba(255,255,255,0.2)';
+                    ctx.fillRect(x + i*pw, y, pw-2, h);
+                }
+                ctx.strokeStyle = '#fff';
+                ctx.lineWidth = 1;
+                ctx.strokeRect(x + i*pw, y, pw-2, h);
+            }
+            ctx.fillStyle = '#a0aec0';
+            ctx.font = '14px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText(`${f1[0]}/${f1[1]} − ${f2[0]}/${f2[1]}`, canvas.width/2, y + h + 25);
+        }
+
+        function drawMixedNumber(whole, num, den) {
+            const cx = canvas.width/2;
+            const pieR = 40;
+            const spacing = 100;
+            // Draw whole pies
+            for (let w = 0; w < Math.min(whole, 3); w++) {
+                const px = cx - spacing + w * 90;
+                for (let i = 0; i < den; i++) {
+                    const start = -Math.PI/2 + i*2*Math.PI/den;
+                    const end = start + 2*Math.PI/den;
+                    ctx.beginPath();
+                    ctx.moveTo(px, canvas.height/2);
+                    ctx.arc(px, canvas.height/2, pieR, start, end);
+                    ctx.closePath();
+                    ctx.fillStyle = colors[i % colors.length];
+                    ctx.fill();
+                    ctx.strokeStyle = '#fff';
+                    ctx.lineWidth = 1;
+                    ctx.stroke();
+                }
+            }
+            // Draw partial pie
+            const px = cx + (Math.min(whole, 3) - 1) * 90 + 90;
+            for (let i = 0; i < den; i++) {
+                const start = -Math.PI/2 + i*2*Math.PI/den;
+                const end = start + 2*Math.PI/den;
+                ctx.beginPath();
+                ctx.moveTo(px, canvas.height/2);
+                ctx.arc(px, canvas.height/2, pieR, start, end);
+                ctx.closePath();
+                ctx.fillStyle = i < num ? colors[i % colors.length] : 'rgba(255,255,255,0.2)';
+                ctx.fill();
+                ctx.strokeStyle = '#fff';
+                ctx.lineWidth = 1;
+                ctx.stroke();
+            }
+            ctx.fillStyle = '#a0aec0';
+            ctx.font = '16px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText(`${whole} whole + ${num}/${den}`, canvas.width/2, 30);
         }
 
         function drawRect(w, h) {
@@ -983,6 +1776,141 @@
             }
         }
 
+        function drawLineDiagram(type) {
+            const y = canvas.height / 2;
+            const x1 = 100, x2 = 400;
+            ctx.strokeStyle = '#9b59b6';
+            ctx.lineWidth = 4;
+
+            if (type === 0) { // Line (extends both directions)
+                ctx.beginPath();
+                ctx.moveTo(x1 - 30, y);
+                ctx.lineTo(x2 + 30, y);
+                ctx.stroke();
+                // Arrows on both ends
+                drawArrow(x1 - 30, y, -1);
+                drawArrow(x2 + 30, y, 1);
+            } else if (type === 1) { // Ray (one endpoint, one arrow)
+                ctx.beginPath();
+                ctx.moveTo(x1, y);
+                ctx.lineTo(x2 + 30, y);
+                ctx.stroke();
+                // Endpoint circle
+                ctx.fillStyle = '#f39c12';
+                ctx.beginPath();
+                ctx.arc(x1, y, 8, 0, Math.PI * 2);
+                ctx.fill();
+                // Arrow on right
+                drawArrow(x2 + 30, y, 1);
+            } else { // Line Segment (two endpoints)
+                ctx.beginPath();
+                ctx.moveTo(x1, y);
+                ctx.lineTo(x2, y);
+                ctx.stroke();
+                // Two endpoint circles
+                ctx.fillStyle = '#f39c12';
+                ctx.beginPath();
+                ctx.arc(x1, y, 8, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.beginPath();
+                ctx.arc(x2, y, 8, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
+
+        function drawArrow(x, y, dir) {
+            ctx.fillStyle = '#9b59b6';
+            ctx.beginPath();
+            ctx.moveTo(x + dir * 15, y);
+            ctx.lineTo(x, y - 8);
+            ctx.lineTo(x, y + 8);
+            ctx.closePath();
+            ctx.fill();
+        }
+
+        function drawSymmetry(shapeName) {
+            const cx = canvas.width / 2, cy = canvas.height / 2;
+            ctx.strokeStyle = '#1abc9c';
+            ctx.lineWidth = 3;
+
+            if (shapeName.includes('Square')) {
+                const s = 80;
+                ctx.strokeRect(cx - s/2, cy - s/2, s, s);
+                // Draw symmetry lines
+                ctx.strokeStyle = '#ffab00';
+                ctx.lineWidth = 2;
+                ctx.setLineDash([5, 5]);
+                ctx.beginPath(); ctx.moveTo(cx, cy - s/2 - 20); ctx.lineTo(cx, cy + s/2 + 20); ctx.stroke();
+                ctx.beginPath(); ctx.moveTo(cx - s/2 - 20, cy); ctx.lineTo(cx + s/2 + 20, cy); ctx.stroke();
+                ctx.setLineDash([]);
+            } else if (shapeName.includes('Rectangle')) {
+                const w = 120, h = 60;
+                ctx.strokeRect(cx - w/2, cy - h/2, w, h);
+                ctx.strokeStyle = '#ffab00';
+                ctx.lineWidth = 2;
+                ctx.setLineDash([5, 5]);
+                ctx.beginPath(); ctx.moveTo(cx, cy - h/2 - 20); ctx.lineTo(cx, cy + h/2 + 20); ctx.stroke();
+                ctx.beginPath(); ctx.moveTo(cx - w/2 - 20, cy); ctx.lineTo(cx + w/2 + 20, cy); ctx.stroke();
+                ctx.setLineDash([]);
+            } else if (shapeName.includes('Triangle')) {
+                const r = 60;
+                ctx.beginPath();
+                for (let i = 0; i <= 3; i++) {
+                    const a = -Math.PI/2 + i * 2 * Math.PI / 3;
+                    if (i === 0) ctx.moveTo(cx + r * Math.cos(a), cy + r * Math.sin(a));
+                    else ctx.lineTo(cx + r * Math.cos(a), cy + r * Math.sin(a));
+                }
+                ctx.stroke();
+                ctx.strokeStyle = '#ffab00';
+                ctx.setLineDash([5, 5]);
+                ctx.beginPath(); ctx.moveTo(cx, cy - r - 15); ctx.lineTo(cx, cy + r/2 + 30); ctx.stroke();
+                ctx.setLineDash([]);
+            } else if (shapeName.includes('Circle')) {
+                ctx.beginPath();
+                ctx.arc(cx, cy, 60, 0, Math.PI * 2);
+                ctx.stroke();
+                ctx.fillStyle = '#a0aec0';
+                ctx.font = '14px sans-serif';
+                ctx.textAlign = 'center';
+                ctx.fillText('∞ lines of symmetry', cx, cy + 90);
+            } else {
+                // Generic polygon
+                const sides = shapeName.includes('Pentagon') ? 5 : (shapeName.includes('Hexagon') ? 6 : 4);
+                const r = 60;
+                ctx.beginPath();
+                for (let i = 0; i <= sides; i++) {
+                    const a = -Math.PI/2 + i * 2 * Math.PI / sides;
+                    if (i === 0) ctx.moveTo(cx + r * Math.cos(a), cy + r * Math.sin(a));
+                    else ctx.lineTo(cx + r * Math.cos(a), cy + r * Math.sin(a));
+                }
+                ctx.stroke();
+            }
+        }
+
+        function drawCompositeShape(a1, b1, a2, b2) {
+            const scale = 8;
+            const sx = 100, sy = 50;
+            // First rectangle
+            ctx.fillStyle = '#3498db';
+            ctx.fillRect(sx, sy, a1 * scale, b1 * scale);
+            ctx.strokeStyle = '#fff';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(sx, sy, a1 * scale, b1 * scale);
+            // Second rectangle (adjacent)
+            ctx.fillStyle = '#e74c3c';
+            ctx.fillRect(sx + a1 * scale + 20, sy, a2 * scale, b2 * scale);
+            ctx.strokeRect(sx + a1 * scale + 20, sy, a2 * scale, b2 * scale);
+            // Labels
+            ctx.fillStyle = '#fff';
+            ctx.font = '14px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText(`${a1}×${b1}`, sx + a1*scale/2, sy + b1*scale + 20);
+            ctx.fillText(`${a2}×${b2}`, sx + a1*scale + 20 + a2*scale/2, sy + b2*scale + 20);
+            ctx.fillStyle = '#ffab00';
+            ctx.font = 'bold 16px sans-serif';
+            ctx.fillText('+', sx + a1*scale + 10, sy + Math.max(b1, b2)*scale/2);
+        }
+
         function drawSharing(total, groups) {
             const size = 12;
             const displayTotal = Math.min(total, 40);
@@ -1044,6 +1972,87 @@
             ctx.font = 'bold 14px sans-serif';
             ctx.textAlign = 'center';
             ctx.fillText('?', 80+((a+b)/max/2)*w, 48);
+        }
+
+        function drawClock(hour, minute) {
+            const cx = canvas.width / 2, cy = canvas.height / 2, r = 70;
+            // Clock face
+            ctx.beginPath();
+            ctx.arc(cx, cy, r, 0, Math.PI * 2);
+            ctx.fillStyle = '#2c3e50';
+            ctx.fill();
+            ctx.strokeStyle = '#fff';
+            ctx.lineWidth = 3;
+            ctx.stroke();
+            // Hour markers
+            for (let i = 1; i <= 12; i++) {
+                const angle = (i * 30 - 90) * Math.PI / 180;
+                const x = cx + (r - 15) * Math.cos(angle);
+                const y = cy + (r - 15) * Math.sin(angle);
+                ctx.fillStyle = '#fff';
+                ctx.font = 'bold 14px sans-serif';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(i, x, y);
+            }
+            // Hour hand
+            const hourAngle = ((hour % 12) * 30 + minute * 0.5 - 90) * Math.PI / 180;
+            ctx.strokeStyle = '#e74c3c';
+            ctx.lineWidth = 4;
+            ctx.beginPath();
+            ctx.moveTo(cx, cy);
+            ctx.lineTo(cx + 35 * Math.cos(hourAngle), cy + 35 * Math.sin(hourAngle));
+            ctx.stroke();
+            // Minute hand
+            const minAngle = (minute * 6 - 90) * Math.PI / 180;
+            ctx.strokeStyle = '#3498db';
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.moveTo(cx, cy);
+            ctx.lineTo(cx + 50 * Math.cos(minAngle), cy + 50 * Math.sin(minAngle));
+            ctx.stroke();
+            // Center dot
+            ctx.fillStyle = '#ffab00';
+            ctx.beginPath();
+            ctx.arc(cx, cy, 5, 0, Math.PI * 2);
+            ctx.fill();
+            // Time display
+            ctx.fillStyle = '#a0aec0';
+            ctx.font = '16px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText(`Start: ${hour}:${minute.toString().padStart(2, '0')}`, cx, cy + r + 25);
+        }
+
+        function drawRuler(value, multiplier) {
+            const y = canvas.height / 2;
+            const startX = 80;
+            const unit = multiplier === 12 ? 'inches' : (multiplier === 3 ? 'feet' : 'units');
+            const fromUnit = multiplier === 12 ? 'feet' : (multiplier === 3 ? 'yards' : 'units');
+
+            // Draw ruler
+            ctx.fillStyle = '#f5d76e';
+            ctx.fillRect(startX, y - 20, 340, 40);
+            ctx.strokeStyle = '#c0a830';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(startX, y - 20, 340, 40);
+
+            // Draw tick marks
+            const tickSpacing = 320 / (value * multiplier / (multiplier === 36 ? 6 : 1));
+            for (let i = 0; i <= value * (multiplier === 36 ? 6 : multiplier); i++) {
+                const x = startX + 10 + i * tickSpacing;
+                const isMajor = i % (multiplier === 36 ? 6 : multiplier) === 0;
+                ctx.strokeStyle = '#8b7355';
+                ctx.lineWidth = isMajor ? 2 : 1;
+                ctx.beginPath();
+                ctx.moveTo(x, y + 20);
+                ctx.lineTo(x, y + (isMajor ? -10 : 5));
+                ctx.stroke();
+            }
+
+            ctx.fillStyle = '#fff';
+            ctx.font = 'bold 16px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText(`${value} ${fromUnit} = ? ${unit}`, canvas.width / 2, y - 50);
         }
     </script>
 </body>
