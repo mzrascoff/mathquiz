@@ -1326,8 +1326,8 @@
             currentCorrectAnswer = null;
             const q = generateUniqueQuestion(currentQuiz, difficulty.level);
 
-            // Decide if this should be open-ended (more likely at higher levels)
-            const openEndedChance = difficulty.level >= 4 ? 0.4 : (difficulty.level >= 3 ? 0.25 : 0.1);
+            // Decide if this should be open-ended (50% of all questions)
+            const openEndedChance = 0.5;
             const useOpenEnded = Math.random() < openEndedChance;
 
             document.getElementById('questionCounter').textContent = 'Question ' + (currentQuestion+1) + '/10';
@@ -1509,10 +1509,10 @@
         // Determine which question types work well as open-ended
         function canBeOpenEnded(quiz, qtype) {
             const openEndedTypes = {
-                multiplication: ['array', 'largemult', 'skip', 'missing'],
-                fractions: ['addFrac', 'subFrac', 'mixed', 'pie', 'bar'],
-                geometry: ['perim', 'area', 'symmetry', 'composite'],
-                word_problems: ['div', 'money', 'diff', 'add', 'twostep', 'time', 'measure']
+                multiplication: ['array', 'largemult', 'skip', 'missing', 'compare'],
+                fractions: ['addFrac', 'subFrac', 'mixed', 'pie', 'bar', 'equiv', 'compare'],
+                geometry: ['perim', 'area', 'symmetry', 'composite', 'angle'],
+                word_problems: ['div', 'money', 'diff', 'add', 'twostep', 'time', 'measure', 'mult']
             };
             return openEndedTypes[quiz]?.includes(qtype) || false;
         }
