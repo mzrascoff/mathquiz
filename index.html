@@ -233,6 +233,68 @@
             .question-text { font-size: 1.1rem; }
             h1 { font-size: 1.6rem; }
         }
+        /* Open-ended answer input styles */
+        .open-answer-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 15px;
+        }
+        .answer-input {
+            width: 100%;
+            max-width: 400px;
+            padding: 18px 25px;
+            border: 2px solid rgba(255,255,255,0.3);
+            border-radius: 16px;
+            background: rgba(255,255,255,0.1);
+            color: white;
+            font-size: 1.4rem;
+            font-weight: 600;
+            text-align: center;
+            outline: none;
+            transition: all 0.3s;
+        }
+        .answer-input:focus {
+            border-color: #7c4dff;
+            box-shadow: 0 0 20px rgba(124, 77, 255, 0.3);
+        }
+        .answer-input::placeholder {
+            color: rgba(255,255,255,0.4);
+        }
+        .submit-btn {
+            padding: 15px 40px;
+            background: linear-gradient(135deg, #2ecc71, #27ae60);
+            border: none;
+            border-radius: 30px;
+            color: white;
+            font-size: 1.1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        .submit-btn:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 10px 30px rgba(46, 204, 113, 0.4);
+        }
+        .submit-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+        .answer-hint {
+            color: #a0aec0;
+            font-size: 0.9rem;
+            margin-top: 5px;
+        }
+        .open-badge {
+            display: inline-block;
+            background: linear-gradient(135deg, #9b59b6, #8e44ad);
+            padding: 3px 10px;
+            border-radius: 10px;
+            font-size: 0.75rem;
+            margin-left: 8px;
+            vertical-align: middle;
+        }
     </style>
 </head>
 <body>
@@ -1138,9 +1200,108 @@
 
         // --- Quiz State ---
         let currentQuiz = null, currentQuestion = 0, score = 0, answered = false;
+        let currentCorrectAnswer = null; // For open-ended validation
+        let isOpenEnded = false;
         const canvas = document.getElementById('visualCanvas');
         const ctx = canvas.getContext('2d');
         const colors = ['#3498db','#e74c3c','#2ecc71','#f39c12','#9b59b6','#1abc9c','#e67e22','#e91e63'];
+
+        // --- Smart Pattern Matching for Open-Ended Answers ---
+        function validateAnswer(userAnswer, correctAnswer) {
+            // Normalize both answers
+            const normalize = (s) => String(s).toLowerCase().trim()
+                .replace(/\$/g, '')
+                .replace(/\s+/g, ' ')
+                .replace(/[,]/g, '');
+
+            const user = normalize(userAnswer);
+            const correct = normalize(correctAnswer);
+
+            // Direct match
+            if (user === correct) return true;
+
+            // Number variations (e.g., "12" matches "12.0" or "12.00")
+            const userNum = parseFloat(user);
+            const correctNum = parseFloat(correct);
+            if (!isNaN(userNum) && !isNaN(correctNum) && userNum === correctNum) return true;
+
+            // Fraction variations (e.g., "1/2" matches "1 / 2")
+            const fracRegex = /^(\d+)\s*\/\s*(\d+)$/;
+            const userFrac = user.match(fracRegex);
+            const correctFrac = correct.match(fracRegex);
+            if (userFrac && correctFrac) {
+                if (userFrac[1] === correctFrac[1] && userFrac[2] === correctFrac[2]) return true;
+            }
+
+            // Time variations (e.g., "3:30" matches "3:30 pm" or "03:30")
+            const timeRegex = /^(\d{1,2}):(\d{2})(\s*(am|pm))?$/i;
+            const userTime = user.match(timeRegex);
+            const correctTime = correct.match(timeRegex);
+            if (userTime && correctTime) {
+                if (parseInt(userTime[1]) === parseInt(correctTime[1]) &&
+                    parseInt(userTime[2]) === parseInt(correctTime[2])) return true;
+            }
+
+            // Word number variations
+            const wordToNum = {
+                'zero': 0, 'one': 1, 'two': 2, 'three': 3, 'four': 4,
+                'five': 5, 'six': 6, 'seven': 7, 'eight': 8, 'nine': 9,
+                'ten': 10, 'eleven': 11, 'twelve': 12, 'thirteen': 13,
+                'fourteen': 14, 'fifteen': 15, 'sixteen': 16, 'seventeen': 17,
+                'eighteen': 18, 'nineteen': 19, 'twenty': 20, 'thirty': 30,
+                'forty': 40, 'fifty': 50, 'sixty': 60, 'seventy': 70,
+                'eighty': 80, 'ninety': 90, 'hundred': 100, 'infinite': 999
+            };
+            if (wordToNum[user] !== undefined && wordToNum[user] === correctNum) return true;
+            if (wordToNum[correct] !== undefined && userNum === wordToNum[correct]) return true;
+
+            return false;
+        }
+
+        function displayOpenEndedInput(correct, hint = '') {
+            currentCorrectAnswer = correct;
+            isOpenEnded = true;
+            const grid = document.getElementById('answersGrid');
+            grid.innerHTML = `
+                <div class="open-answer-container">
+                    <input type="text" class="answer-input" id="openAnswer"
+                           placeholder="Type your answer..."
+                           onkeypress="if(event.key==='Enter')checkOpenAnswer()">
+                    <button class="submit-btn" onclick="checkOpenAnswer()">Submit Answer</button>
+                    ${hint ? `<div class="answer-hint">${hint}</div>` : ''}
+                </div>
+            `;
+            document.getElementById('openAnswer').focus();
+        }
+
+        function checkOpenAnswer() {
+            if (answered) return;
+            answered = true;
+
+            const input = document.getElementById('openAnswer');
+            const userAnswer = input.value;
+            const isCorrect = validateAnswer(userAnswer, currentCorrectAnswer);
+
+            input.disabled = true;
+            document.querySelector('.submit-btn').disabled = true;
+
+            if (isCorrect) {
+                input.style.borderColor = '#2ecc71';
+                input.style.boxShadow = '0 0 20px rgba(46, 204, 113, 0.5)';
+                score++;
+                document.getElementById('scoreDisplay').textContent = score;
+                document.getElementById('feedback').className = 'feedback correct';
+                document.getElementById('feedback').textContent = '✓ Correct! Great job!';
+            } else {
+                input.style.borderColor = '#e74c3c';
+                input.style.boxShadow = '0 0 20px rgba(231, 76, 60, 0.5)';
+                document.getElementById('feedback').className = 'feedback incorrect';
+                document.getElementById('feedback').textContent = `✗ Not quite. The correct answer is: ${currentCorrectAnswer}`;
+            }
+
+            updateDifficulty(isCorrect);
+            document.getElementById('nextBtn').classList.add('visible');
+        }
 
         function startQuiz(type) {
             currentQuiz = type;
@@ -1161,12 +1322,19 @@
 
         function loadQuestion() {
             answered = false;
+            isOpenEnded = false;
+            currentCorrectAnswer = null;
             const q = generateUniqueQuestion(currentQuiz, difficulty.level);
+
+            // Decide if this should be open-ended (more likely at higher levels)
+            const openEndedChance = difficulty.level >= 4 ? 0.4 : (difficulty.level >= 3 ? 0.25 : 0.1);
+            const useOpenEnded = Math.random() < openEndedChance;
+
             document.getElementById('questionCounter').textContent = 'Question ' + (currentQuestion+1) + '/10';
             document.getElementById('progressFill').style.width = ((currentQuestion+1)*10) + '%';
             document.getElementById('scoreDisplay').textContent = score;
             document.getElementById('qNumber').textContent = 'Q' + (currentQuestion+1);
-            document.getElementById('questionText').textContent = q.q;
+            document.getElementById('questionText').innerHTML = q.q + (useOpenEnded ? '<span class="open-badge">Type Answer</span>' : '');
             document.getElementById('feedback').className = 'feedback';
             document.getElementById('nextBtn').classList.remove('visible');
             document.getElementById('levelBadge').textContent = 'Lv.' + difficulty.level;
@@ -1325,8 +1493,28 @@
                 }
             }
 
-            const shuffled = shuffle(answers, correct);
-            displayAnswers(shuffled.arr, shuffled.idx);
+            // Choose display mode: open-ended or multiple choice
+            if (useOpenEnded && canBeOpenEnded(currentQuiz, q.type || q.qtype)) {
+                let hint = '';
+                if (String(correct).includes('/')) hint = 'Enter as a fraction (e.g., 3/4)';
+                else if (String(correct).includes(':')) hint = 'Enter time (e.g., 3:30)';
+                else if (String(correct).startsWith('$')) hint = 'Enter amount (e.g., 15 or $15)';
+                displayOpenEndedInput(correct, hint);
+            } else {
+                const shuffled = shuffle(answers, correct);
+                displayAnswers(shuffled.arr, shuffled.idx);
+            }
+        }
+
+        // Determine which question types work well as open-ended
+        function canBeOpenEnded(quiz, qtype) {
+            const openEndedTypes = {
+                multiplication: ['array', 'largemult', 'skip', 'missing'],
+                fractions: ['addFrac', 'subFrac', 'mixed', 'pie', 'bar'],
+                geometry: ['perim', 'area', 'symmetry', 'composite'],
+                word_problems: ['div', 'money', 'diff', 'add', 'twostep', 'time', 'measure']
+            };
+            return openEndedTypes[quiz]?.includes(qtype) || false;
         }
 
         function genWrong(c, n) {
